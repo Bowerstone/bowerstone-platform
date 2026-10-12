@@ -93,7 +93,7 @@ bowerstone-platform/
 ├── web/shell/                # @bowerstone/shell, the one React app
 ├── tests/example_app/        # a small test-only app that proves loading and screens
 ├── docs/decisions/           # copies of the decision notes
-└── scripts/
+└── scripts/check_file_length.py  # the 300-line check
 ```
 
 ### App repository layout
@@ -122,33 +122,48 @@ bowerstone-accounting/
 
 Ilia does this task by hand:
 
-- Create the GitHub organization `bowerstone` and the repository `bowerstone-platform`, outside OneDrive on the computer.
+- Create the GitHub organization `bowerstone` and the repository `bowerstone-platform`.
+- Add `.gitattributes` with the line `* text=auto eol=lf`, before any script or migration is committed. Windows Git otherwise checks files out with Windows line endings, which break shell scripts in the containers and change migration checksums. If files are already committed, run `git add --renormalize .` after adding it.
 - Copy in the `dot-claude` folder from the Repository Starter, renamed to `.claude`.
 - Use the new CLAUDE.md. It replaces the starter's CLAUDE.md and its `docs/` rule files.
 - Add the AGPL-3.0 licence file from the official text.
+- Install Python 3 on the computer, only to run the guard hook. Check that `python3 --version` works in Git Bash, because Claude Code runs the hook with `python3`. If the hook command cannot start, Claude Code does not block the command, so a missing `python3` turns the guard off without warning.
 - Run the hook tests.
+- Check the hook live: ask Claude Code to run `git commit --dry-run`, and confirm the hook blocks it. The dry run creates no commit even if the hook fails.
 - Copy the decision notes into `docs/decisions/` by hand: the Platform Architecture note and this note (as `platform-build-plan.md`).
 - Make the first commit, and protect `main`.
 
-**Done when:** the repository is on GitHub with these files, and `main` is protected.
+**Done when:** the repository is on GitHub with these files, `main` is protected, and the live check shows the hook blocking `git commit --dry-run`.
 
 ### Task 0.2: Platform tooling
 
 Repository: `bowerstone-platform`.
 
-- **Tools on the development computer:** Git, Docker Desktop, Python 3.13 with `uv`, and Node 22.
+- **Tools on the development computer:** Git, Make, and Docker Desktop only. On Windows, Make is installed with `winget install ezwinports.make`. Python, `uv`, Node, and Postgres are never installed on the computer for the project's code.
+- **Everything runs in Docker.** `compose.dev.yaml` runs the code in containers, with pinned image versions:
+  - `db`: Postgres 18 with the built-in locale. `docker/initdb/01-roles.sh` creates the two roles, as in the Initial Setup Plan, section "Database roles". The tests from task 1.1 onwards use it.
+  - `engine`: Python 3.13 with `uv`. The repository is mounted into it, and its packages live in a named volume. Lint, type checks, tests, migrations, and the development server run here.
+  - `web`: Node 22. The repository is mounted into it, and `node_modules` lives in a named volume. The screens' build, tests, and development server run here.
+  - Playwright runs in the official Playwright image, from task 2.2.
 - **Python:** one `uv` project for the engine. Development tools go in a `dev` dependency group: `pytest`, `httpx`, `hypothesis`, `ruff`, and `mypy`.
 - **npm:** workspaces for `web/ui` and `web/shell`.
-- **Development database.** `compose.dev.yaml` and `docker/initdb/01-roles.sh` start Postgres 18 with the built-in locale and the two roles, as in the Initial Setup Plan, section "Database roles". The tests from task 1.1 onwards use it.
-- **Makefile:** `lint`, `test`, and `db` work. The other targets print "Not yet set up" until the task that builds them: `migrate` in task 1.6, `dev` in task 2.2.
+- **Makefile:** every target runs inside the containers through `docker compose`, so a command gives the same result on any computer and in the automated builds. `lint`, `test`, and `db` work. The other targets print "Not yet set up" until the task that builds them: `migrate` in task 1.6, `dev` in task 2.2.
 - **Lint settings:**
   - `ruff` uses rules `E F W I B UP S SIM RUF`.
   - `mypy` runs in strict mode.
   - TypeScript runs with `strict: true`.
-  - A check fails on any source file over 300 lines (CLAUDE.md rule 8).
+  - `scripts/check_file_length.py` fails on any source file over 300 lines (CLAUDE.md rule 8).
 - **CLAUDE.md:** the Context section names this repository and its paths.
+- **README.md:** what the repository is, and how to start.
+  - **Requirements:** Git, Make, and Docker Desktop. Nothing else is installed for the project's code.
+  - **Working with Claude Code:** Python 3, only for the guard hook in `.claude/`. A separate heading, so contributors who do not use Claude Code know they do not need it.
+  - **Commands:** `make db`, `make lint`, and `make test`, with more added by later tasks.
+- **SECURITY.md:** how to report a security problem.
+  - Reports go through GitHub's private vulnerability reporting, never public issues. Ilia turns it on in the repository settings.
+  - Before version 1.0, only the latest release gets security fixes.
+  - It states how quickly a report is answered. Ilia sets the time before the file is committed.
 
-**Done when:** `make db` starts the development database with both roles, and `make lint` and `make test` run on the empty project and pass.
+**Done when:** on a computer with only Git, Make, and Docker Desktop, `make db` starts the development database with both roles, and `make lint` and `make test` run in the containers on the empty project and pass.
 
 ## Phase 1: The engine
 
@@ -186,6 +201,7 @@ The runner is a small engine module. It replaces Alembic, which the Initial Setu
   - Applied files are recorded in `core.applied_migration`, along with module, version, name, checksum, and time.
   - The runner creates the `core` schema and this table itself if they are missing, before the first core migration runs, so `0001_core.sql` does not create them.
   - The runner refuses to continue if a file changed after it was applied. This enforces the rule that released migrations are never edited.
+  - The checksum is taken over the file's exact bytes. The runner refuses any migration file that contains a Windows line ending, and names the file, so a wrong checkout fails loudly instead of looking like an edited migration.
 - **Lock.** A session-level Postgres advisory lock, held for the whole run, stops two runs from changing the schema at once. A lock that lasts one transaction is not enough, because each file runs in its own transaction.
 - **Transactions.** Each upgrade runs in one transaction with its record.
 - **Files outside a transaction.** A migration file whose first line is `-- bowerstone: no-transaction` runs outside a transaction, and may hold only one statement. Its record is written after the statement succeeds. This allows `CREATE INDEX CONCURRENTLY` on large tables.
@@ -403,6 +419,7 @@ Check every component against the design guides in CLAUDE.md rule 4.
   - A removed app's screens disappear.
 - **Security.** Screens load only from the engine's own address, so the Content Security Policy keeps `script-src 'self'`. Nothing loads from outside the installation.
 - **Routing.** A small built-in router, `#/<app>/<page>`, avoids another dependency.
+- **Development servers.** Saved changes on a Windows drive do not reach the containers as file events, so `compose.dev.yaml` sets the Vite server and the engine's reload to poll for changes: `server.watch.usePolling` in Vite, and `WATCHFILES_FORCE_POLLING=true` for the engine.
 - **API types.** TypeScript types are generated from the engine's OpenAPI schema with `openapi-typescript`. The generated file is committed, and the automated build checks that it is current.
 
 **Done when:**
@@ -437,7 +454,7 @@ It holds the app repository layout shown above, with:
 
 - **Contents:**
   - a working empty app: a manifest, one migration, one route, one screen, and their tests
-  - `compose.dev.yaml`, the Makefile, and the automated builds
+  - `compose.dev.yaml`, the Makefile, and the automated builds, with everything running in Docker as in task 0.2
   - `make dev` and `make e2e`, which start the engine with the app installed and serve the published `@bowerstone/shell`, so the app's Playwright tests can run
 - **The automated builds run:**
   - lint and the 300-line file check
@@ -448,6 +465,7 @@ It holds the app repository layout shown above, with:
   - `bandit`, `pip-audit`, `npm audit`, and `gitleaks`
 - **Releases.** On a version tag pushed by Ilia, the screens are built into the package, then it is published to PyPI and attached, signed, to a GitHub release.
 - **CLAUDE.md.** The same rules, with the Context section left for each app to fill in.
+- **README.md.** The same Requirements and Working with Claude Code sections as the platform's, from task 0.2.
 
 **Done when:** a repository created from the template passes its automated builds without changes.
 
@@ -638,7 +656,7 @@ The test also removes Invoicing and restarts the engine, checks that its screens
 
 | Repository | Jobs |
 | --- | --- |
-| `bowerstone-platform` | Engine: a Postgres 18 service with the built-in locale, `ruff`, `mypy`, `pytest`, `bandit`, `pip-audit`. Web: type check, `eslint`, unit tests, build, API types current, `npm audit`. End-to-end test. Guard hook tests and `gitleaks` |
+| `bowerstone-platform` | Everything runs through `compose.dev.yaml` and the `make` targets, as on the development computer. Engine: the compose `db` container, `ruff`, `mypy`, `pytest`, `bandit`, `pip-audit`. Web: type check, `eslint`, unit tests, build, API types current, `npm audit`. End-to-end test. Guard hook tests and `gitleaks` |
 | Each app repository | The template's jobs (task 3.2), plus the contract tests against the oldest and newest version of each app it needs |
 
 **Done when:** a pull request in each repository shows every job green. A deliberately broken ledger rule test turns the Accounting build red.

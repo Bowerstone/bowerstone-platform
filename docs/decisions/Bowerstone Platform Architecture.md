@@ -216,7 +216,7 @@ bowerstone-accounting/
 ├── src/bowerstone_accounting/   # backend: manifest, public module, routes, migrations
 ├── web/                         # the screens, built into the package
 ├── tests/
-├── compose.dev.yaml             # a development Postgres
+├── compose.dev.yaml             # the development containers: Postgres, the engine, and the screens
 ├── pyproject.toml               # needs bowerstone-engine, within a version range
 ├── package.json                 # needs @bowerstone/ui and @bowerstone/shell, within a version range
 └── CLAUDE.md, features.md, README.md, LICENSE
