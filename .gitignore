@@ -14,8 +14,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
 parts/
 sdist/
 var/
@@ -218,3 +216,24 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Environment files (keep the example)
+.env.*
+!.env.example
+
+# Node
+node_modules/
+*.tsbuildinfo
+.eslintcache
+.vite/
+coverage/
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# Operating system files
+.DS_Store
+Thumbs.db
