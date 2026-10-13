@@ -2,6 +2,82 @@
 
 The change log for `bowerstone-platform`, newest entry first. Only Ilia sets an entry to "Approved".
 
+## 2026-10-13: The core schema (Platform Build Plan, task 1.3)
+- Status: Ready for review
+- What and why: The core module's first migration, `0001_core.sql`, creates the data every app shares, in the `core` schema:
+  - the one company row
+  - roles and permissions as data
+  - users
+  - the shared list of customers and suppliers
+  - installed apps
+  - the append-only change history
+  - events
+  It also creates `core.write_audit()`, the change-history trigger every app attaches to its tables, and `core.emit_event()`, through which apps announce changes. PostgreSQL itself limits `bowerstone_app` to reading, plus the few changes the API needs.
+  - Decisions: one company per installation (v1 Charter, decision 8, confirmed by Ilia on 2026-10-13). The starting time zone is `America/Vancouver`.
+  - Departures agreed with Ilia:
+    - record IDs in `audit_log` and `event` are text, so any table's key fits
+    - `core.applied_migration` stays readable by the owner role only
+  - What `bowerstone_app` may change:
+    - the company's name and time zone, but not its currency (version 1 is CAD only)
+    - parties: add and change, but not delete; a party is deactivated instead
+    - everything else is read only. It writes the change history and events only through `write_audit` and `emit_event`.
+  - Error codes for the API to translate:
+    - `BW012`: a change to the change history
+    - `BW013`: a time zone that does not exist
+    - `BW014`: an invalid event
+- Files:
+  - Engine: `engine/src/bowerstone_engine/core/__init__.py`, `core/migrations/__init__.py`, `core/migrations/0001_core.sql`, `core/migrations/0001_core.down.sql`
+  - Tests: `engine/tests/core_schema/` (`conftest.py` and seven test files). `engine/tests/conftest.py` gains `session_database_factory`, `app_url_for`, and `admin_url_for`.
+  - This file.
+- Tests: 114 new tests, run with `make test`. Each test file gets a database of its own with the core migration applied.
+  - **The plan's "done when" list.** As `bowerstone_app`, PostgreSQL refuses with error 42501 any attempt to:
+    - write, change, delete from, or empty the change history
+    - empty any core table
+    - switch off a trigger
+    - drop a table
+    - write `installed_app`, the permission tables, users, or events directly
+    Changes to parties appear in the change history, with the user from `set_current_user`, or no user when none is set.
+  - **The migration:**
+    - it is found inside the installed package
+    - upgrade, downgrade to 0, then upgrade again
+    - the database check still passes
+    - the starting company, roles, permissions, and role assignments are exactly as planned
+    - the change history and event list start empty
+  - **Function security:**
+    - all four core functions pin their search path, and only `write_audit` and `emit_event` run as the owner
+    - only `emit_event` is granted to the app role
+    - a role not granted it cannot call it, which also proves PostgreSQL's default grant was removed
+  - **Company:**
+    - name and time zone changes are recorded with their user
+    - real time zones are accepted; invented, empty, wrongly capitalised, or space-padded ones are refused with `BW013`
+    - names: empty, blank, and 201-character names are refused; 200-character, one-character, and Unicode names are accepted
+    - even the owner cannot add a second company or set a malformed currency
+  - **Parties:**
+    - add, change, and deactivate
+    - recorded history with and without a user
+    - nine kinds of out-of-limit value refused; values at the limits, missing contact details, and Unicode accepted
+  - **Users:** the change history never holds a password hash, and email addresses are unique whatever their capitals.
+  - **The change history:**
+    - even the owner cannot change, delete from, or empty it (`BW012`)
+    - another schema's table with the same name is told apart (`demo.party` and `core.party`)
+    - a table without an `id` is refused
+  - **Events:**
+    - stored with the right values; the payload may be left out
+    - fifteen kinds of invalid event refused with `BW014`
+    - a payload of exactly 64 KB accepted; one byte over refused, also when counted in multi-byte characters
+    - an event disappears when its transaction rolls back
+  - **Concurrency:** two simultaneous renames of the company are both applied, in order, and both recorded.
+  - **Indexes, checked with `EXPLAIN ANALYZE` on 200,000 seeded rows:** one record's history uses `audit_log_record_idx`, and waiting events use `event_unhandled_idx`.
+  - **Packaging:** the built wheel was checked by hand, and contains both SQL files and the package markers.
+- Scaling and security:
+  - **What PostgreSQL enforces:** `bowerstone_app` owns nothing. It may read the shared tables, change only the listed columns, and write the change history and events only through the two owner-run functions, both with a fixed `search_path`.
+  - **Function grants:** PostgreSQL's default of letting every role call a new function is removed.
+  - **The change history** is append-only and cannot be emptied, even by the owner role. The owner could still drop its triggers in a migration; the plan accepts this, because these rules stop bugs, not someone with full database access.
+  - **Personal data:** the change history holds party names, emails, and phone numbers, which is its job, but never password hashes. Reading it will need `core.view`, checked by the API in task 1.5.
+  - **Event payloads** are capped at 64 KB.
+  - **Indexes:** history and waiting-event lookups have indexes checked on large data. The party list in task 1.5 will page by `id`, which the primary key serves.
+- Dependencies added: None
+
 ## 2026-10-13: Line limits removed
 - Status: Ready for review
 - What and why: Ilia decided to remove both line limits, because they kept failing lint on things that did not matter.

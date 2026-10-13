@@ -177,6 +177,20 @@ def owner_url_for() -> Callable[[str], SecretStr]:
 
 
 @pytest.fixture(scope="session")
+def app_url_for() -> Callable[[str], SecretStr]:
+    """Give the app role's address for any database on the test server."""
+    app_database_url = ApiSettings().database_url
+    return lambda database: url_for_database(app_database_url, database)
+
+
+@pytest.fixture(scope="session")
+def admin_url_for() -> Callable[[str], SecretStr]:
+    """Give the admin role's address for any database on the test server."""
+    admin_database_url = SecretStr(os.environ["BOWERSTONE_TEST_ADMIN_URL"])
+    return lambda database: url_for_database(admin_database_url, database)
+
+
+@pytest.fixture(scope="session")
 def admin_url(test_database: str) -> SecretStr:
     """The admin role's address for the test database."""
     url = SecretStr(os.environ["BOWERSTONE_TEST_ADMIN_URL"])
@@ -200,9 +214,18 @@ def pool_factory() -> Iterator[PoolFactory]:
         pool.dispose()
 
 
-@pytest.fixture
-def database_factory(admin_pool: Engine) -> Iterator[DatabaseFactory]:
-    """Make extra test databases, and drop them after the test."""
+def _make_databases(admin_pool: Engine) -> Iterator[DatabaseFactory]:
+    """Lend a maker of test databases, then drop every database it made.
+
+    Args:
+        admin_pool: Connections as the admin role, outside transactions.
+
+    Returns:
+        An iterator that yields the maker once, then drops its databases.
+
+    Example:
+        >>> yield from _make_databases(admin_pool)
+    """
     names: list[str] = []
 
     def make_database(locale_provider: str) -> str:
@@ -215,6 +238,18 @@ def database_factory(admin_pool: Engine) -> Iterator[DatabaseFactory]:
     yield make_database
     for name in names:
         drop_database(admin_pool, name)
+
+
+@pytest.fixture
+def database_factory(admin_pool: Engine) -> Iterator[DatabaseFactory]:
+    """Make extra test databases, and drop them after the test."""
+    yield from _make_databases(admin_pool)
+
+
+@pytest.fixture(scope="session")
+def session_database_factory(admin_pool: Engine) -> Iterator[DatabaseFactory]:
+    """Make test databases that last until the test run ends, then drop them."""
+    yield from _make_databases(admin_pool)
 
 
 def _connection_in_rolled_back_transaction(pool: Engine) -> Iterator[Connection]:
