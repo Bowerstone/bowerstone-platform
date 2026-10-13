@@ -2,6 +2,24 @@
 
 The change log for `bowerstone-platform`, newest entry first. Only Ilia sets an entry to "Approved".
 
+## 2026-10-13: Checks on GitHub Actions (part of Platform Build Plan, task 6.3, brought forward)
+- Status: Ready for review
+- What and why: Every push and every pull request runs `make lint`, `make test`, and `make security` on GitHub Actions, in the same pinned containers used on the development computer. A change that breaks a test, a lint rule, or a security check shows as a failed run before it is merged. Ilia asked for this ahead of task 6.3, which still adds the end-to-end test and the remaining jobs.
+- Files: `.github/workflows/checks.yml` (new); `README.md` (a new "Automated checks" section); this file.
+- Tests:
+  - The workflow file was parsed as YAML.
+  - Its steps were rehearsed locally from a clean start: a separate Compose project with new volumes and a new database, throwaway passwords made the way the workflow makes them, and Make running through `sh` as on Linux. `make lint test security` passed in 47 seconds, with 228 tests passing. The rehearsal's containers, volumes, and passwords file were removed afterwards.
+  - The first real run happens on GitHub, when this change is pushed.
+- Scaling and security:
+  - **Read-only:** the job's token may only read the repository.
+  - **No token left behind:** the checkout leaves no access token in the repository, which the containers mount.
+  - **Pinned action:** `actions/checkout` is pinned to its v7.0.1 commit, so a moved tag cannot change what runs.
+  - **No stored secrets:** each run makes its own throwaway database passwords, hides them in the log, and stores them nowhere, so the workflow needs no GitHub secrets.
+  - **Bounded runs:** a 20-minute limit, and a newer push to the same branch cancels the older run.
+  - **Root-owned files:** the containers run as root, so files they write in the workspace belong to root. That is harmless on GitHub's runners, which are discarded after each job, but task 6.3 must settle it before any self-hosted runner is used.
+  - **gitleaks** scans the whole history on every run. The staged-changes scan finds nothing in CI, because nothing is staged there.
+- Dependencies added: `actions/checkout` v7.0.1 (MIT), a GitHub Action used only by the workflow, never shipped.
+
 ## 2026-10-13: Settings, connections, and the database check (Platform Build Plan, task 1.1)
 - Status: Ready for review
 - What and why: Gives the engine its settings, a database connection pool with fixed limits, a way to record which user makes a change, and a check that refuses to run against the wrong database.

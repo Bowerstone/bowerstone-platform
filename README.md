@@ -37,6 +37,10 @@ The first run downloads the container images and packages, so it takes a few min
 | `make migrate` | Not yet set up |
 | `make dev` | Not yet set up |
 
+## Automated checks
+
+GitHub Actions runs `make lint`, `make test`, and `make security` on every push and every pull request, in the same containers as above. The workflow is `.github/workflows/checks.yml`. Each run makes its own throwaway database passwords, so it needs no GitHub secrets.
+
 ## Working with Claude Code
 
 Claude Code works in this repository under the rules in `CLAUDE.md`. A guard hook in `.claude/` stops it from committing, pushing, or reading `.env`.

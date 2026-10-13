@@ -1,0 +1,52 @@
+# Runs every check on each push and pull request, with the same make targets
+# used on the development computer (Platform Build Plan, task 6.3, brought
+# forward). Everything runs in the pinned containers from compose.dev.yaml, so
+# a pass here means a pass on the development computer, and the other way round.
+
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+# The job only reads the repository. It never writes to it or to GitHub.
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the run it replaces.
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, tests, and security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # gitleaks scans every commit, so it needs the whole history.
+          fetch-depth: 0
+          # The containers mount the repository, so no access token is left in it.
+          persist-credentials: false
+
+      - name: Make throwaway database passwords
+        # Made up for this run only, hidden in the log, and never stored.
+        # Letters and digits only, because they go into database addresses.
+        run: |
+          for role in ADMIN OWNER APP; do
+            password="$(openssl rand -hex 24)"
+            echo "::add-mask::${password}"
+            echo "BOWERSTONE_${role}_PASSWORD=${password}" >> .env
+          done
+
+      - name: Lint
+        run: make lint
+
+      - name: Test
+        run: make test
+
+      - name: Security checks
+        run: make security
