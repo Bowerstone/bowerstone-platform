@@ -19,7 +19,7 @@ GITLEAKS := $(COMPOSE) run --rm gitleaks
 help:
 	@echo make db: start the development database and wait until it is ready
 	@echo make format: format the Python files and apply ruff's safe fixes
-	@echo make lint: ruff, mypy, the TypeScript check, and the 300-line check
+	@echo make lint: ruff, mypy, and the TypeScript check
 	@echo make test: run the tests
 	@echo make security: bandit, pip-audit, npm audit, and gitleaks
 	@echo make migrate: not yet set up, task 1.6
@@ -38,7 +38,6 @@ lint:
 	$(ENGINE_ALONE) uv run --locked ruff check
 	$(ENGINE_ALONE) uv run --locked ruff format --check
 	$(ENGINE_ALONE) uv run --locked mypy
-	$(ENGINE_ALONE) uv run --locked python scripts/check_file_length.py .
 	$(WEB) npm ci --no-audit --no-fund
 	$(WEB) npm run typecheck
 
@@ -46,7 +45,7 @@ test:
 	$(ENGINE) uv run --locked pytest
 
 security:
-	$(ENGINE_ALONE) uv run --locked bandit --recursive --quiet engine/src scripts
+	$(ENGINE_ALONE) uv run --locked bandit --recursive --quiet engine/src
 	$(ENGINE_ALONE) sh -c "uv export --quiet --locked --no-emit-project --format requirements-txt --output-file /tmp/requirements.txt && uv run --locked pip-audit --disable-pip --requirement /tmp/requirements.txt"
 	$(WEB) npm audit --audit-level=high
 	$(GITLEAKS) git --no-banner --no-color --redact --verbose .

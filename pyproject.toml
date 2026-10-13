@@ -33,7 +33,7 @@ packages = ["engine/src/bowerstone_engine"]
 [tool.ruff]
 target-version = "py313"
 # Folders holding the project's own modules, so imports of them sort as first-party.
-src = ["engine/src", "scripts", "tests"]
+src = ["engine/src", "tests"]
 # Claude Code never edits .claude/, so it is left out of lint. Its tests still run.
 # Markdown is left out too: ruff would otherwise reformat the Python examples in
 # the plans in docs/decisions/, which Claude Code never edits.
@@ -41,6 +41,9 @@ extend-exclude = [".claude", "*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
+# Line length is left to `ruff format`, which wraps code to 88 characters. Long
+# strings, comments, and docstrings, which it cannot wrap, are allowed.
+ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 # pytest checks results with assert.
@@ -50,14 +53,11 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
 [tool.mypy]
 strict = true
 python_version = "3.13"
-files = ["engine/src", "engine/tests", "scripts", "tests"]
-# The tests import the repository checks in scripts/ by module name.
-mypy_path = "scripts"
+files = ["engine/src", "engine/tests", "tests"]
 # Lets mypy see that settings models read their values from the environment.
 plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "engine/tests", ".claude/hooks"]
-pythonpath = ["scripts"]
 addopts = ["--import-mode=importlib", "--strict-markers", "--strict-config", "-ra"]
 xfail_strict = true

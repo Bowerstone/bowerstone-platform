@@ -2,6 +2,22 @@
 
 The change log for `bowerstone-platform`, newest entry first. Only Ilia sets an entry to "Approved".
 
+## 2026-10-13: Line limits removed
+- Status: Ready for review
+- What and why: Ilia decided to remove both line limits, because they kept failing lint on things that did not matter.
+  - **Characters per line:** ruff's `E501` is off. `ruff format` (and `make format`) still wraps code to 88 characters; long strings, comments, and docstrings that it cannot wrap are no longer errors.
+  - **Lines per file:** the 300-line check is gone: `scripts/check_file_length.py`, its 51 tests, and its step in `make lint`. CLAUDE.md rule 8 no longer names a line count; it keeps "one clear job per file" and the 40-line guide for functions.
+  - **Departure from the Build Plan:** task 0.2 still names `scripts/check_file_length.py` and the 300-line check, and task 3.2 lists the check among the app template's builds. Ilia updates `docs/decisions/`, which Claude Code never edits.
+- Files:
+  - Removed: `scripts/check_file_length.py`, `tests/scripts/test_check_file_length.py`
+  - Changed:
+    - `pyproject.toml`: `E501` ignored, and the `scripts` folder removed from the ruff, mypy, and pytest settings
+    - `Makefile`: the check removed from `make lint`, `bandit` no longer scans `scripts`, and the help text updated
+    - `README.md`, `CLAUDE.md` (rule 8 and the Context section), and this file
+- Tests: no new tests. The full suite still passes, without the 51 line-check tests. Hypothesis is now unused until property tests arrive in task 5.3; it stays in the `dev` group, which the plan names.
+- Scaling and security: None. Neither limit guarded against an attack or a scaling risk.
+- Dependencies added: None
+
 ## 2026-10-13: `make format`
 - Status: Ready for review
 - What and why: Lint kept failing on formatting and import order, which a tool can fix. `make format` runs `ruff format`, then `ruff check --fix`, which applies only ruff's safe fixes, in the engine container. Whatever ruff cannot fix stops the command with a list, for a person to fix. It never touches Markdown or `.claude/`, which `pyproject.toml` excludes, so the plans in `docs/decisions/` stay as written. Also formatted: the three files whose imports grew too long when the runner package was renamed to `bowerstone_engine.migration_runner`.

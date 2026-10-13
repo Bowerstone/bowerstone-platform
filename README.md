@@ -32,7 +32,7 @@ The first run downloads the container images and packages, so it takes a few min
 | --- | --- |
 | `make db` | Starts the development database (PostgreSQL 18 with both Bowerstone roles) and waits until it is ready |
 | `make format` | Formats the Python files and applies ruff's safe fixes, such as import order. Run it before `make lint` |
-| `make lint` | Runs ruff, mypy, the TypeScript check, and the 300-line file check |
+| `make lint` | Runs ruff, mypy, and the TypeScript check |
 | `make test` | Runs the tests |
 | `make security` | Runs bandit, pip-audit, npm audit, and gitleaks |
 | `make migrate` | Not yet set up |

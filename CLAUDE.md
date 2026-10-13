@@ -22,8 +22,7 @@ Rules for Claude in this repository. All of them are mandatory. If a rule is unc
     - `web/ui/`: the design system
     - `web/shell/`: the shell
     - `docker/`: the development database's setup and health check
-    - `scripts/`: repository checks, such as the 300-line check
-    - `tests/`: tests of the tooling and scripts
+    - `tests/`: tests of the development tooling
     - `docs/decisions/`: plans and decisions
   - **Everything runs in Docker,** through `compose.dev.yaml`. The computer needs only Git, Make, and Docker Desktop.
   - **Commands:**
@@ -130,7 +129,7 @@ Assume someone is trying to break every change.
 
 ## 8. Clean, modular code
 
-- **Short files.** Each file has one clear job. Past about 300 lines, or once it does more than one job, refactor it into smaller modules before adding more. A function past about 40 lines gets split. Refactoring is its own change, with tests showing behaviour is unchanged.
+- **Short files.** Each file has one clear job. Once it does more than one job, refactor it into smaller modules before adding more. A function past about 40 lines gets split. Refactoring is its own change, with tests showing behaviour is unchanged.
 - **Clear names.** Names say what a thing is or does: `post_entry`, `TrialBalanceRow`, `bowerstone_accounting/service.py`. No abbreviations, no `utils.py` or `helpers.py`, and no `data`, `info`, or `temp`.
 - **Every module, class, method, and function has a docstring** saying what it does. Inline comments explain why, never what the code already says.
 - **Function docstrings** include a description, the inputs, the output, any errors it raises, and an example. Use TSDoc with `@param`, `@returns`, `@throws`, and `@example` in TypeScript.
