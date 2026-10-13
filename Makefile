@@ -14,10 +14,11 @@ ENGINE_ALONE := $(COMPOSE) run --rm --no-deps engine
 WEB := $(COMPOSE) run --rm web
 GITLEAKS := $(COMPOSE) run --rm gitleaks
 
-.PHONY: help db lint test security migrate dev
+.PHONY: help db format lint test security migrate dev
 
 help:
 	@echo make db: start the development database and wait until it is ready
+	@echo make format: format the Python files and apply ruff's safe fixes
 	@echo make lint: ruff, mypy, the TypeScript check, and the 300-line check
 	@echo make test: run the tests
 	@echo make security: bandit, pip-audit, npm audit, and gitleaks
@@ -26,6 +27,12 @@ help:
 
 db:
 	$(COMPOSE) up --detach --wait db
+
+# Markdown and .claude/ are excluded in pyproject.toml, so this never touches the
+# plans in docs/decisions/ or the guard hook. Whatever ruff cannot fix stops here.
+format:
+	$(ENGINE_ALONE) uv run --locked ruff format
+	$(ENGINE_ALONE) uv run --locked ruff check --fix
 
 lint:
 	$(ENGINE_ALONE) uv run --locked ruff check
