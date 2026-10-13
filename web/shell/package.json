@@ -2,6 +2,7 @@
   "name": "@bowerstone/shell",
   "version": "0.0.0",
   "description": "The Bowerstone shell: the one React app that shows the screens of every installed app.",
+  "license": "AGPL-3.0-only",
   "private": true,
   "type": "module"
 }

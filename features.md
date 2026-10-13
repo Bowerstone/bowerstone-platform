@@ -12,6 +12,7 @@ The change log for `bowerstone-platform`, newest entry first. Only Ilia sets an 
   - `make migrate` and `make dev` stop with "Not yet set up" and status 2, until tasks 1.6 and 2.2.
   - Departures from the plan, agreed with Ilia: TypeScript is installed now, so `web/ui/src/index.ts` exists as the design system's empty entry module, giving the check a file to check. The 300-line check covers code, SQL, and shell scripts.
   - Additions not in the plan: `ruff format --check` in `make lint`, and both workspaces marked `"private": true` so npm cannot publish them before task 3.1.
+  - Licence: `AGPL-3.0-only`, Ilia's decision on 2026-10-12. It is set in `pyproject.toml`, all three `package.json` files, and the README.
 - Files:
   - Containers and database: `compose.dev.yaml`, `.env.example`, `docker/initdb/01-roles.sh` (the Initial Setup Plan's script, made executable), `docker/check_database.sh`
   - Python: `pyproject.toml`, `uv.lock`, `engine/src/bowerstone_engine/__init__.py`, `scripts/check_file_length.py`

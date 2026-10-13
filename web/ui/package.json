@@ -2,6 +2,7 @@
   "name": "@bowerstone/ui",
   "version": "0.0.0",
   "description": "The Bowerstone design system: the shared tokens and React components every app uses.",
+  "license": "AGPL-3.0-only",
   "private": true,
   "type": "module"
 }

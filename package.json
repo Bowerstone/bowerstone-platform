@@ -2,6 +2,7 @@
   "name": "bowerstone-platform",
   "private": true,
   "description": "npm workspaces for @bowerstone/ui and @bowerstone/shell.",
+  "license": "AGPL-3.0-only",
   "workspaces": [
     "web/ui",
     "web/shell"

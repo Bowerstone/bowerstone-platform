@@ -3,6 +3,8 @@ name = "bowerstone-engine"
 version = "0.0.0"
 description = "The Bowerstone engine: the one backend program that runs every Bowerstone app."
 readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
 requires-python = ">=3.13,<3.14"
 dependencies = []
 

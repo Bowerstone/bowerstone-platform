@@ -49,4 +49,4 @@ See `SECURITY.md`. Please do not open a public issue.
 
 ## Licence
 
-GNU Affero General Public License, version 3. See `LICENSE`.
+GNU Affero General Public License, version 3 only (`AGPL-3.0-only`). See `LICENSE`.
