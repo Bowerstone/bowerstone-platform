@@ -17,6 +17,8 @@ def run(command: str, tool: str = "Bash") -> subprocess.CompletedProcess:
 
 ALLOWED = [
     "git status",
+    "git ls-tree -r HEAD",
+    "git check-attr eol -- docker/initdb/01-roles.sh",
     "git diff --staged",
     "git log --oneline -20",
     "git add api/src/bowerstone/ledger/service.py features.md",

@@ -1,0 +1,52 @@
+[project]
+name = "bowerstone-engine"
+version = "0.0.0"
+description = "The Bowerstone engine: the one backend program that runs every Bowerstone app."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4,<2",
+    "httpx>=0.28.1,<0.29",
+    "hypothesis>=6.169.0,<7",
+    "mypy>=2.4.0,<3",
+    "pip-audit>=2.10.1,<3",
+    "pytest>=9.1.1,<10",
+    "ruff>=0.17.0,<0.18",
+]
+
+[build-system]
+requires = ["hatchling>=1.32.4,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["engine/src/bowerstone_engine"]
+
+[tool.ruff]
+target-version = "py313"
+# Folders holding the project's own modules, so imports of them sort as first-party.
+src = ["engine/src", "scripts", "tests"]
+# Claude Code never edits .claude/, so it is left out of lint. Its tests still run.
+extend-exclude = [".claude"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# pytest checks results with assert.
+"tests/**" = ["S101"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+files = ["engine/src", "scripts", "tests"]
+# The tests import the repository checks in scripts/ by module name.
+mypy_path = "scripts"
+
+[tool.pytest.ini_options]
+testpaths = ["tests", ".claude/hooks"]
+pythonpath = ["scripts"]
+addopts = ["--import-mode=importlib", "--strict-markers", "--strict-config", "-ra"]
+xfail_strict = true

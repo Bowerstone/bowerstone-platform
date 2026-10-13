@@ -1,0 +1,85 @@
+# Development containers for bowerstone-platform (Platform Build Plan, task 0.2).
+#
+# Every tool runs in these containers, so the computer needs only Git, Make,
+# and Docker Desktop. The Makefile runs each command through this file.
+#
+# Images are pinned by version and digest. To update one, change both together.
+# Passwords come from .env, as listed in .env.example. Compose stops with a
+# message when one is missing, rather than starting with an empty password.
+
+name: bowerstone-dev
+
+services:
+  db:
+    image: postgres:18.6-trixie@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+    environment:
+      POSTGRES_USER: bowerstone_admin
+      POSTGRES_PASSWORD: ${BOWERSTONE_ADMIN_PASSWORD:?Set BOWERSTONE_ADMIN_PASSWORD in .env, as listed in .env.example}
+      POSTGRES_DB: bowerstone
+      # The built-in C.UTF-8 locale sorts text the same way on every system,
+      # so a backup can move between them safely.
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale-provider=builtin --locale=C.UTF-8
+      BOWERSTONE_OWNER_PASSWORD: ${BOWERSTONE_OWNER_PASSWORD:?Set BOWERSTONE_OWNER_PASSWORD in .env, as listed in .env.example}
+      BOWERSTONE_APP_PASSWORD: ${BOWERSTONE_APP_PASSWORD:?Set BOWERSTONE_APP_PASSWORD in .env, as listed in .env.example}
+    volumes:
+      # Postgres 18 images keep their data in /var/lib/postgresql/18/docker.
+      - db-data:/var/lib/postgresql
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+      - ./docker/check_database.sh:/bowerstone/check_database.sh:ro
+    # No ports are published: everything that uses the database runs in a container.
+    healthcheck:
+      test: ["CMD", "sh", "/bowerstone/check_database.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+      start_interval: 1s
+
+  engine:
+    image: ghcr.io/astral-sh/uv:0.9.30-python3.13-bookworm-slim@sha256:531f855bda2c73cd6ef67d56b733b357cea384185b3022bd09f05e002cd144ca
+    working_dir: /workspace
+    environment:
+      # The project's packages live in named volumes, off the slow Windows mount.
+      UV_PROJECT_ENVIRONMENT: /opt/venv
+      UV_CACHE_DIR: /opt/uv-cache
+      # Only the image's Python 3.13 is used. uv never downloads another one.
+      UV_PYTHON_DOWNLOADS: never
+      # The cache and the environment are separate volumes, so files are copied.
+      UV_LINK_MODE: copy
+    volumes:
+      - .:/workspace
+      - engine-venv:/opt/venv
+      - uv-cache:/opt/uv-cache
+
+  web:
+    image: node:22.23.3-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+    working_dir: /workspace
+    environment:
+      NPM_CONFIG_UPDATE_NOTIFIER: "false"
+    volumes:
+      - .:/workspace
+      # node_modules lives in a named volume, off the slow Windows mount.
+      - web-node-modules:/workspace/node_modules
+      - npm-cache:/root/.npm
+
+  gitleaks:
+    image: zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+    # Runs only when `make security` asks for it.
+    profiles: ["checks"]
+    working_dir: /workspace
+    environment:
+      # Inside the container the repository belongs to another user. Git
+      # refuses to read such a repository unless it is marked as trusted.
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: safe.directory
+      GIT_CONFIG_VALUE_0: /workspace
+    volumes:
+      # Read-only, so nothing in this container can change the repository.
+      - .:/workspace:ro
+
+volumes:
+  db-data:
+  engine-venv:
+  uv-cache:
+  web-node-modules:
+  npm-cache:

@@ -1,0 +1,5 @@
+// TypeScript settings for @bowerstone/ui. The shared settings are in tsconfig.base.json.
+{
+  "extends": "../../tsconfig.base.json",
+  "include": ["src"]
+}

@@ -30,7 +30,7 @@ GIT_SAFE = {
     "status", "diff", "log", "show", "add", "blame", "grep", "ls-files", "rev-parse",
     "describe", "shortlog", "help", "version", "fetch", "mv", "remote", "reflog",
     "branch", "switch", "checkout", "restore", "stash", "config", "rm", "reset",
-    "worktree", "check-ignore", "cat-file",
+    "worktree", "check-ignore", "cat-file", "ls-tree", "check-attr",
 }
 
 

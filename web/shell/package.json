@@ -1,0 +1,7 @@
+{
+  "name": "@bowerstone/shell",
+  "version": "0.0.0",
+  "description": "The Bowerstone shell: the one React app that shows the screens of every installed app.",
+  "private": true,
+  "type": "module"
+}

@@ -16,7 +16,20 @@ Rules for Claude in this repository. All of them are mandatory. If a rule is unc
   - Depend on published versions of the engine, the design system, and other apps, within a range.
   - A change that breaks a public function needs a new major version.
   - Never commit a path to a local copy of another repository.
-- **This repository.** Fill in for each repository: its name, what it holds, its main folders, and the commands for lint, tests, and running it.
+- **This repository.** `bowerstone-platform` holds the engine (`bowerstone-engine`), the design system (`@bowerstone/ui`), and the shell (`@bowerstone/shell`).
+  - **Main folders:**
+    - `engine/src/bowerstone_engine/`: the engine
+    - `web/ui/`: the design system
+    - `web/shell/`: the shell
+    - `docker/`: the development database's setup and health check
+    - `scripts/`: repository checks, such as the 300-line check
+    - `tests/`: tests of the tooling and scripts
+    - `docs/decisions/`: plans and decisions
+  - **Everything runs in Docker,** through `compose.dev.yaml`. The computer needs only Git, Make, and Docker Desktop.
+  - **Commands:**
+    - `make db` starts the development database.
+    - `make lint`, `make test`, and `make security` run the checks.
+    - `make migrate` and `make dev` are not set up yet.
 - **Plans and decisions.** They are in `docs/decisions/`, which Claude never edits. The build plan for the base is `docs/decisions/platform-build-plan.md`. If the code and a decision disagree, stop and ask.
 
 ## 1. Log every change in `features.md`
