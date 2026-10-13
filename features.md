@@ -2,6 +2,14 @@
 
 The change log for `bowerstone-platform`, newest entry first. Only Ilia sets an entry to "Approved".
 
+## 2026-10-13: `make format`
+- Status: Ready for review
+- What and why: Lint kept failing on formatting and import order, which a tool can fix. `make format` runs `ruff format`, then `ruff check --fix`, which applies only ruff's safe fixes, in the engine container. Whatever ruff cannot fix stops the command with a list, for a person to fix. It never touches Markdown or `.claude/`, which `pyproject.toml` excludes, so the plans in `docs/decisions/` stay as written. Also formatted: the three files whose imports grew too long when the runner package was renamed to `bowerstone_engine.migration_runner`.
+- Files: `Makefile`, `README.md`, the Context section of `CLAUDE.md`, this file, and (formatting only) `migration_runner/migrate.py`, `engine/tests/migration_runner/conftest.py`, `engine/tests/migration_runner/test_upgrade.py`
+- Tests: `make format` was run on a deliberately badly formatted temporary file: it fixed the spacing and sorted the imports, changed nothing else, and the file was then deleted. `make lint` and `make test` pass afterwards.
+- Scaling and security: The command changes files only through ruff, and only files ruff is set to cover: the Python files and `pyproject.toml`.
+- Dependencies added: None
+
 ## 2026-10-13: The migration runner (Platform Build Plan, task 1.2)
 - Status: Ready for review
 - What and why: Applies each module's numbered SQL files exactly once and in order, records them in `core.applied_migration` with a checksum, and undoes them with their down files. It replaces Alembic, which would need one migration branch per app.

@@ -28,6 +28,7 @@ Rules for Claude in this repository. All of them are mandatory. If a rule is unc
   - **Everything runs in Docker,** through `compose.dev.yaml`. The computer needs only Git, Make, and Docker Desktop.
   - **Commands:**
     - `make db` starts the development database.
+    - `make format` formats the Python files and applies ruff's safe fixes.
     - `make lint`, `make test`, and `make security` run the checks.
     - `make migrate` and `make dev` are not set up yet.
 - **Plans and decisions.** They are in `docs/decisions/`, which Claude never edits. The build plan for the base is `docs/decisions/platform-build-plan.md`. If the code and a decision disagree, stop and ask.

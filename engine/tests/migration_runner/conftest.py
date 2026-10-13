@@ -13,7 +13,10 @@ from pydantic import SecretStr
 from sqlalchemy import Connection, Engine, Row, text
 
 from bowerstone_engine.migration_runner.migrate import upgrade
-from bowerstone_engine.migration_runner.migration_files import Migration, read_migrations
+from bowerstone_engine.migration_runner.migration_files import (
+    Migration,
+    read_migrations,
+)
 
 AddMigration = Callable[..., None]
 Query = Callable[..., Sequence[Row[Any]]]

@@ -20,7 +20,10 @@ from bowerstone_engine.migration_runner.migration_execution import (
     migration_lock,
     run_with_record,
 )
-from bowerstone_engine.migration_runner.migration_files import Migration, check_module_name
+from bowerstone_engine.migration_runner.migration_files import (
+    Migration,
+    check_module_name,
+)
 from bowerstone_engine.migration_runner.migration_records import (
     ADD_RECORD,
     REMOVE_RECORD,

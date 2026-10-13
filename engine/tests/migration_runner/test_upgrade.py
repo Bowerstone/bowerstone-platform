@@ -12,7 +12,10 @@ from sqlalchemy import Connection, Engine, Row, exc, text
 
 from bowerstone_engine.errors import MigrationError
 from bowerstone_engine.migration_runner.migrate import upgrade
-from bowerstone_engine.migration_runner.migration_files import Migration, read_migrations
+from bowerstone_engine.migration_runner.migration_files import (
+    Migration,
+    read_migrations,
+)
 
 AddMigration = Callable[..., None]
 ReadDemo = Callable[[], list[Migration]]
