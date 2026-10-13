@@ -46,6 +46,18 @@ services:
       UV_PYTHON_DOWNLOADS: never
       # The cache and the environment are separate volumes, so files are copied.
       UV_LINK_MODE: copy
+      # The engine's settings (bowerstone_engine.config). Development only: this
+      # one container holds all three passwords so it can run the API, the
+      # migrations, and the tests. The release image (task 6.1) keeps the
+      # owner's and the admin's passwords out of the container that runs the API.
+      BOWERSTONE_ENV: development
+      BOWERSTONE_DATABASE_URL: postgresql+psycopg://bowerstone_app:${BOWERSTONE_APP_PASSWORD:?Set BOWERSTONE_APP_PASSWORD in .env, as listed in .env.example}@db:5432/bowerstone
+      BOWERSTONE_OWNER_DATABASE_URL: postgresql+psycopg://bowerstone_owner:${BOWERSTONE_OWNER_PASSWORD:?Set BOWERSTONE_OWNER_PASSWORD in .env, as listed in .env.example}@db:5432/bowerstone
+      # Used only by the tests, to create and drop a fresh test database.
+      BOWERSTONE_TEST_ADMIN_URL: postgresql+psycopg://bowerstone_admin:${BOWERSTONE_ADMIN_PASSWORD:?Set BOWERSTONE_ADMIN_PASSWORD in .env, as listed in .env.example}@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - .:/workspace
       - engine-venv:/opt/venv

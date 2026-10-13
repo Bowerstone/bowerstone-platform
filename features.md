@@ -2,6 +2,68 @@
 
 The change log for `bowerstone-platform`, newest entry first. Only Ilia sets an entry to "Approved".
 
+## 2026-10-13: Settings, connections, and the database check (Platform Build Plan, task 1.1)
+- Status: Ready for review
+- What and why: Gives the engine its settings, a database connection pool with fixed limits, a way to record which user makes a change, and a check that refuses to run against the wrong database.
+  - `config.py`: `ApiSettings` and `MigrationSettings` are read from `BOWERSTONE_` variables. The API's settings never include the owner role's database address, so the running API never holds the owner's password.
+  - `db.py`: `create_connection_pool` makes a fixed-size pool whose connections each start with a statement timeout, a connect timeout, and the UTC time zone. `set_current_user` records the user for the change history until the transaction ends.
+  - `database_check.py`: `check_database` refuses unless the server is PostgreSQL 18, the database uses the built-in `C.UTF-8` locale, both Bowerstone roles exist and neither is a superuser, and the current user is `bowerstone_owner`.
+  - Choices agreed with Ilia: synchronous database access; default values for the connection limits only; `static_dir` and `max_body_bytes` arrive in task 1.5, which first uses them.
+  - Required of task 1.5: never show or log a database error message as it is. SQLAlchemy leaves bound values out of its error text, but PostgreSQL's own message can quote a value, such as text that failed to read as a number, or the key in a unique-constraint error. `test_postgresql_messages_can_still_quote_a_value` records this.
+  - Additions to the plan:
+    - The database check also refuses either role being a superuser.
+    - Each settings model checks that its database address signs in as its own role.
+    - Every connection uses the UTC time zone.
+    - The check lives in `database_check.py` rather than `migrate.py`, so each file keeps one job (CLAUDE.md rule 8).
+- Files:
+  - Engine: `engine/src/bowerstone_engine/config.py`, `db.py`, `database_check.py`, `errors.py`
+  - Tests: `engine/tests/conftest.py`, `test_config.py`, `test_connection_pool.py`, `test_database_check.py`, `test_set_current_user.py`
+  - Tooling:
+    - `compose.dev.yaml`: the engine container gets its database addresses and waits for a healthy database
+    - `Makefile`: `lint` and `security` no longer start the database
+    - `pyproject.toml` and `uv.lock`: the new dependencies; mypy, pytest, and ruff cover `engine/tests`; the pydantic mypy plugin
+    - `.env.example`: passwords must be letters and digits
+  - This file.
+- Tests: 99 new tests, run with `make test` against a fresh PostgreSQL 18 database that each run creates and drops.
+  - `test_config.py`, 46 tests:
+    - settings read from the environment
+    - each required value missing
+    - unknown environments, including different capitalisation and a leading space
+    - wrong drivers, wrong roles, missing host or database, unreadable addresses, and an empty address, with the password never in the message
+    - the API's settings never reading the owner's address, and passwords hidden when settings are printed
+    - every limit's defaults and bounds, and refused values: zero, negative, too large, fractional, text, empty, 1,000 digits, and Arabic-Indic digits
+    - settings that cannot be changed once read
+  - `test_database_check.py`, 28 tests:
+    - the logic on made-up facts: PostgreSQL 10, 17, 18.0, 18.9999, and 19; the operating system's, ICU, built-in `C`, and `PG_UNICODE_FAST` locales; each role missing, both missing, each a superuser; three wrong users; every problem at once
+    - against PostgreSQL 18: passes as the owner; refuses the app role; refuses a database made with the operating system's locale
+    - refuses each missing role and a superuser role. The tests rename or change a role inside a transaction that is rolled back, and check that the role is back afterwards.
+  - `test_connection_pool.py`, 8 tests:
+    - every pooled connection has the statement timeout and the UTC time zone
+    - a 100 ms timeout stops a 1 s query, and a short query still finishes
+    - a pool of 2 never opens a third connection (counted on the server); the third request fails after the 1 s pool timeout
+    - a queued request gets the next free connection
+    - a server that accepts but never answers is given up on after the 2 s connect timeout
+    - SQLAlchemy keeps bound values out of its error text, and PostgreSQL's own message can still quote one
+  - `test_set_current_user.py`, 17 tests:
+    - the user is recorded for the transaction; `None` records nothing; the largest bigint is accepted
+    - the user is forgotten after commit and after rollback, and is not passed to the next request on the same pooled connection
+    - two concurrent transactions each see only their own user
+    - refused outside a transaction
+    - refused IDs: 0, -1, `True`, `False`, the largest bigint plus one, 1.5, `"5"`, `""`, and `b"5"`
+- Scaling and security:
+  - **The API never holds the owner's password.** `ApiSettings` cannot read the owner's address, and each settings model refuses an address that signs in as any other role.
+  - **Fixed pool.** It never opens more than its size, and a request waits at most the pool timeout. Every connection has a statement timeout and a connect timeout, so no query or connection attempt waits forever.
+  - **No user leaks between requests.** The recorded user lasts only until the transaction ends.
+  - **Secrets stay out of messages.** Database addresses are kept as secrets and never appear in printed settings or error messages. SQLAlchemy leaves bound values out of its errors and logs; task 1.5 must handle PostgreSQL's own messages, as above.
+  - **SQL:** queries use bound parameters. Database and role names in test setup are quoted by psycopg's `sql` module, because names cannot be bound parameters.
+  - **Development only:** the engine container holds the admin, owner, and app passwords. The release image (task 6.1) separates them.
+  - **Leftover test databases:** a test run killed partway can leave a `bowerstone_test_*` database behind. Normal runs drop theirs.
+- Dependencies added. These are the first that ship in the engine package; all licences work with AGPL:
+  - sqlalchemy 2.1.4 (MIT)
+  - psycopg[binary] 3.3.6 (LGPL-3.0-only); psycopg-binary bundles libpq
+  - pydantic-settings 2.15.0 (MIT), which brings pydantic 2.14.1, pydantic-core 2.50.1, typing-inspection, and annotated-types (all MIT), and python-dotenv 1.2.4 (BSD-3-Clause), which is never set up to read `.env`
+  - `uv.lock` now pins 58 packages.
+
 ## 2026-10-12: Platform tooling (Platform Build Plan, task 0.2)
 - Status: Ready for review
 - What and why: Sets up the development tooling, so a computer with only Git, Make, and Docker Desktop can work on the platform. Postgres 18, Python 3.13 with `uv`, and Node 22 run in containers defined in `compose.dev.yaml`, and every `make` target runs through them.

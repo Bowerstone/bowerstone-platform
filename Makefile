@@ -7,7 +7,10 @@
 # /workspace, because Git Bash on Windows rewrites arguments that start with "/".
 
 COMPOSE := docker compose --file compose.dev.yaml
+# The tests need the database, so the engine container waits for it to be healthy.
 ENGINE := $(COMPOSE) run --rm engine
+# Lint and the security checks do not, so they skip starting it.
+ENGINE_ALONE := $(COMPOSE) run --rm --no-deps engine
 WEB := $(COMPOSE) run --rm web
 GITLEAKS := $(COMPOSE) run --rm gitleaks
 
@@ -25,10 +28,10 @@ db:
 	$(COMPOSE) up --detach --wait db
 
 lint:
-	$(ENGINE) uv run --locked ruff check
-	$(ENGINE) uv run --locked ruff format --check
-	$(ENGINE) uv run --locked mypy
-	$(ENGINE) uv run --locked python scripts/check_file_length.py .
+	$(ENGINE_ALONE) uv run --locked ruff check
+	$(ENGINE_ALONE) uv run --locked ruff format --check
+	$(ENGINE_ALONE) uv run --locked mypy
+	$(ENGINE_ALONE) uv run --locked python scripts/check_file_length.py .
 	$(WEB) npm ci --no-audit --no-fund
 	$(WEB) npm run typecheck
 
@@ -36,8 +39,8 @@ test:
 	$(ENGINE) uv run --locked pytest
 
 security:
-	$(ENGINE) uv run --locked bandit --recursive --quiet engine/src scripts
-	$(ENGINE) sh -c "uv export --quiet --locked --no-emit-project --format requirements-txt --output-file /tmp/requirements.txt && uv run --locked pip-audit --disable-pip --requirement /tmp/requirements.txt"
+	$(ENGINE_ALONE) uv run --locked bandit --recursive --quiet engine/src scripts
+	$(ENGINE_ALONE) sh -c "uv export --quiet --locked --no-emit-project --format requirements-txt --output-file /tmp/requirements.txt && uv run --locked pip-audit --disable-pip --requirement /tmp/requirements.txt"
 	$(WEB) npm audit --audit-level=high
 	$(GITLEAKS) git --no-banner --no-color --redact --verbose .
 	$(GITLEAKS) git --no-banner --no-color --redact --verbose --pre-commit --staged .

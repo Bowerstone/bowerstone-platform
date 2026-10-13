@@ -6,7 +6,11 @@ readme = "README.md"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
 requires-python = ">=3.13,<3.14"
-dependencies = []
+dependencies = [
+    "psycopg[binary]>=3.3.6,<4",
+    "pydantic-settings>=2.15.0,<3",
+    "sqlalchemy>=2.1.4,<2.2",
+]
 
 [dependency-groups]
 dev = [
@@ -41,16 +45,19 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 # pytest checks results with assert.
 "tests/**" = ["S101"]
+"engine/tests/**" = ["S101"]
 
 [tool.mypy]
 strict = true
 python_version = "3.13"
-files = ["engine/src", "scripts", "tests"]
+files = ["engine/src", "engine/tests", "scripts", "tests"]
 # The tests import the repository checks in scripts/ by module name.
 mypy_path = "scripts"
+# Lets mypy see that settings models read their values from the environment.
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", ".claude/hooks"]
+testpaths = ["tests", "engine/tests", ".claude/hooks"]
 pythonpath = ["scripts"]
 addopts = ["--import-mode=importlib", "--strict-markers", "--strict-config", "-ra"]
 xfail_strict = true
