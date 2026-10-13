@@ -46,7 +46,7 @@ def write_lines(path: Path, count: int, line: str = "x = 1", end: str = "\n") ->
         (b"one\ntwo", 2),
         (b"one\ntwo\n", 2),
         (b"one\r\ntwo\r\n", 2),
-        ("one still one\n".encode(), 1),
+        ("one\N{LINE SEPARATOR}still one\n".encode(), 1),
         (b"\n\n\n", 3),
     ],
 )
@@ -104,7 +104,9 @@ def test_every_source_type_is_checked(tmp_path: Path, suffix: str) -> None:
     ]
 
 
-@pytest.mark.parametrize("name", ["notes.md", "data.json", "compose.yaml", "Makefile", "x.txt"])
+@pytest.mark.parametrize(
+    "name", ["notes.md", "data.json", "compose.yaml", "Makefile", "x.txt"]
+)
 def test_other_file_types_are_not_checked(tmp_path: Path, name: str) -> None:
     """Documents, data, and configuration files may be any length."""
     write_lines(tmp_path / name, LIMIT * 3)
@@ -112,8 +114,10 @@ def test_other_file_types_are_not_checked(tmp_path: Path, name: str) -> None:
 
 
 @pytest.mark.parametrize("folder", sorted(check_file_length.SKIPPED_FOLDERS))
-def test_skipped_folders_are_not_checked_at_any_depth(tmp_path: Path, folder: str) -> None:
-    """Dependencies, build output, caches, and .claude/ are left out wherever they are."""
+def test_skipped_folders_are_not_checked_at_any_depth(
+    tmp_path: Path, folder: str
+) -> None:
+    """Dependencies, build output, caches, and .claude/ are skipped at any depth."""
     write_lines(tmp_path / folder / "long.js", LIMIT * 3)
     write_lines(tmp_path / "web" / "ui" / folder / "long.js", LIMIT * 3)
     assert find_long_files(tmp_path, LIMIT, NOTHING_SKIPPED) == []
@@ -152,7 +156,9 @@ def test_a_file_is_reported_exactly_when_it_is_over_the_limit(line_count: int) -
     assert reported == ([LongFile("any.py", line_count)] if line_count > LIMIT else [])
 
 
-def test_main_passes_and_says_so(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_passes_and_says_so(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """With no long files, the check exits 0 and says every file is within the limit."""
     write_lines(tmp_path / "short.py", 10)
     assert main([str(tmp_path)]) == 0
@@ -166,7 +172,8 @@ def test_main_fails_and_names_each_long_file(
     write_lines(tmp_path / "engine" / "big.py", LIMIT + 20)
     assert main([str(tmp_path)]) == 1
     assert capsys.readouterr().err == (
-        f"engine/big.py: {LIMIT + 20} lines, over the {LIMIT}-line limit (CLAUDE.md rule 8)\n"
+        f"engine/big.py: {LIMIT + 20} lines, "
+        f"over the {LIMIT}-line limit (CLAUDE.md rule 8)\n"
     )
 
 
@@ -181,7 +188,9 @@ def test_main_refuses_a_root_that_is_not_a_folder(
     assert f"{missing} is not a folder" in capsys.readouterr().err
 
 
-def test_main_refuses_a_missing_root_argument(capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_refuses_a_missing_root_argument(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """Running the check without a root stops with status 2, not a guessed folder."""
     with pytest.raises(SystemExit) as stopped:
         main([])

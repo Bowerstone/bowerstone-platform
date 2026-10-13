@@ -29,7 +29,9 @@ target-version = "py313"
 # Folders holding the project's own modules, so imports of them sort as first-party.
 src = ["engine/src", "scripts", "tests"]
 # Claude Code never edits .claude/, so it is left out of lint. Its tests still run.
-extend-exclude = [".claude"]
+# Markdown is left out too: ruff would otherwise reformat the Python examples in
+# the plans in docs/decisions/, which Claude Code never edits.
+extend-exclude = [".claude", "*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]

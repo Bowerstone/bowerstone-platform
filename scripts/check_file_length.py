@@ -115,7 +115,9 @@ def source_files(root: Path, skipped_files: frozenset[str]) -> Iterator[Path]:
         ['check_file_length.py']
     """
     for folder, subfolders, file_names in os.walk(root, onerror=_raise_walk_error):
-        subfolders[:] = sorted(name for name in subfolders if name not in SKIPPED_FOLDERS)
+        subfolders[:] = sorted(
+            name for name in subfolders if name not in SKIPPED_FOLDERS
+        )
         for file_name in sorted(file_names):
             path = Path(folder, file_name)
             if path.suffix not in SOURCE_SUFFIXES:
@@ -125,7 +127,9 @@ def source_files(root: Path, skipped_files: frozenset[str]) -> Iterator[Path]:
             yield path
 
 
-def find_long_files(root: Path, limit: int, skipped_files: frozenset[str]) -> list[LongFile]:
+def find_long_files(
+    root: Path, limit: int, skipped_files: frozenset[str]
+) -> list[LongFile]:
     """Find every source file with more lines than the limit.
 
     Args:

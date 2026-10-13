@@ -259,17 +259,20 @@ Each app declares a manifest under the Python entry point group `bowerstone.apps
 
 ```python
 APP = AppManifest(
-    key="invoicing",                 # also its schema name and URL prefix
+    key="invoicing",  # also its schema name and URL prefix
     name="Invoicing",
     version="0.1.0",
     migrations_package="bowerstone_invoicing.migrations",
-    router=build_router,             # its FastAPI routes
+    router=build_router,  # its FastAPI routes
     screens_package="bowerstone_invoicing.screens",
     requires=("accounting",),
-    engine_versions=">=0.1,<0.2",    # the engine versions it works with
-    ui_versions=">=0.1,<0.2",       # the design system versions its screens work with
-    permissions=(Permission("invoicing.issue", "Issue invoices", ("owner", "staff")), ...),
-    data_deletable=True,             # False for Accounting
+    engine_versions=">=0.1,<0.2",  # the engine versions it works with
+    ui_versions=">=0.1,<0.2",  # the design system versions its screens work with
+    permissions=(
+        Permission("invoicing.issue", "Issue invoices", ("owner", "staff")),
+        ...,
+    ),
+    data_deletable=True,  # False for Accounting
 )
 ```
 
@@ -505,7 +508,9 @@ Repository: `bowerstone-accounting`.
 `bowerstone_accounting.public` is the only way other apps use Accounting:
 
 ```python
-def post_entry(conn, *, entry_date, description, lines, source, source_ref, user_id) -> PostedEntry: ...
+def post_entry(
+    conn, *, entry_date, description, lines, source, source_ref, user_id
+) -> PostedEntry: ...
 def account_by_id(conn, account_id) -> Account | None: ...
 ```
 

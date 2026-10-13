@@ -3,14 +3,51 @@
 The change log for `bowerstone-platform`, newest entry first. Only Ilia sets an entry to "Approved".
 
 ## 2026-10-12: Platform tooling (Platform Build Plan, task 0.2)
-- Status: In progress
-- What and why: Sets up the development tooling so that a computer with only Git, Make, and Docker Desktop can work on the platform. Postgres 18, Python 3.13 with `uv`, and Node 22 run in containers defined in `compose.dev.yaml`, and every `make` target runs through them.
-  - `make db` starts Postgres 18 with the built-in `C.UTF-8` locale and the `bowerstone_owner` and `bowerstone_app` roles, and waits for a health check that confirms all three.
-  - `make lint` runs ruff, mypy in strict mode, the TypeScript check, and the 300-line file check.
-  - `make test` runs the tests, including the guard hook's tests from `.claude/hooks/`.
+- Status: Ready for review
+- What and why: Sets up the development tooling, so a computer with only Git, Make, and Docker Desktop can work on the platform. Postgres 18, Python 3.13 with `uv`, and Node 22 run in containers defined in `compose.dev.yaml`, and every `make` target runs through them.
+  - `make db` starts Postgres 18.6 with the built-in `C.UTF-8` locale and the roles `bowerstone_owner` and `bowerstone_app`. It waits for a health check that confirms all three.
+  - `make lint` runs `ruff check`, `ruff format --check`, mypy in strict mode, the 300-line file check, and the TypeScript check.
+  - `make test` runs the tests, including the guard hook's tests in `.claude/hooks/`.
   - `make security` runs bandit, pip-audit, npm audit, and gitleaks. CLAUDE.md rule 7 runs them on every change, so they start here rather than in task 6.3.
-  - `make migrate` and `make dev` stop with "Not yet set up" until tasks 1.6 and 2.2.
-- Files: in progress
-- Tests: in progress
-- Scaling and security: in progress
-- Dependencies added: in progress
+  - `make migrate` and `make dev` stop with "Not yet set up" and status 2, until tasks 1.6 and 2.2.
+  - Departures from the plan, agreed with Ilia: TypeScript is installed now, so `web/ui/src/index.ts` exists as the design system's empty entry module, giving the check a file to check. The 300-line check covers code, SQL, and shell scripts.
+  - Additions not in the plan: `ruff format --check` in `make lint`, and both workspaces marked `"private": true` so npm cannot publish them before task 3.1.
+- Files:
+  - Containers and database: `compose.dev.yaml`, `.env.example`, `docker/initdb/01-roles.sh` (the Initial Setup Plan's script, made executable), `docker/check_database.sh`
+  - Python: `pyproject.toml`, `uv.lock`, `engine/src/bowerstone_engine/__init__.py`, `scripts/check_file_length.py`
+  - Web: `package.json`, `package-lock.json`, `.npmrc`, `tsconfig.base.json`, `web/ui/package.json`, `web/ui/tsconfig.json`, `web/ui/src/index.ts`, `web/shell/package.json`
+  - Commands and documents: `Makefile`, `README.md`, `SECURITY.md`, the Context section of `CLAUDE.md`, and this file
+- Tests: run with `make test`; lint with `make lint`; security checks with `make security`.
+  - `tests/scripts/test_check_file_length.py`, 51 tests:
+    - files of 0, 300, and 301 lines, and a last line without a line ending
+    - Windows line endings, long Unicode lines, and Unicode line separators
+    - every checked file type, and file types that aren't checked
+    - skipped folders at any depth, and generated files skipped only at their exact path
+    - many files reported in a stable order
+    - a Hypothesis property test over 0 to 600 lines
+    - the exit status and messages, including a missing or wrong root folder
+  - `tests/tooling/test_engine_container.py`, 2 tests: Python is 3.13, and Git is not installed.
+  - The guard hook's 76 tests in `.claude/hooks/` run in the engine container.
+  - Checked by hand, with the output in the review summary:
+    - `make db` on a new volume and again on the existing one; the roles script ran once.
+    - `psql` shows Postgres 18.6, the built-in `C.UTF-8` locale, `bowerstone_owner` as owner, `bowerstone_app` with CONNECT only, no CONNECT for PUBLIC, and neither role a superuser.
+    - The health check fails with its reason when a role is missing or the locale is wrong.
+    - Over the Docker network, wrong passwords are refused.
+    - Strict TypeScript rejects an implicit `any` and an unchecked array index.
+    - npm refuses to install on Node 24.
+    - Compose stops when a password is empty.
+    - The Makefile works with recipes run through `cmd.exe` and through Git Bash's `sh`.
+- Scaling and security:
+  - **Passwords** come only from the git-ignored `.env`. Compose stops with a message naming any missing or empty one, rather than starting with an empty password. Every target needs `.env`, because Compose reads the whole file.
+  - **No database port is published.** Only containers on the Compose network can reach Postgres, and they must use a password (`scram-sha-256`).
+  - **Trust inside the database container:** the Postgres image trusts connections from inside its own container (the local socket and `127.0.0.1`). That is the image's default and is left unchanged. Anyone who can open a shell in the container already controls Docker. Task 6.1 can tighten it for the release image.
+  - **Pinned images:** every image is pinned by version and digest, so a changed upstream image cannot slip in. Updating one is a manual change for now.
+  - **No Git in the development images.** Nothing run in the `engine` or `web` containers can write the repository's history. A test checks `engine`; `web` was checked by hand. gitleaks runs with the repository mounted read-only.
+  - **Ruff skips Markdown,** so it never reformats the code examples in `docs/decisions/`.
+  - **Python:** `uv` never downloads a Python other than the image's 3.13, and `--locked` fails if `uv.lock` is out of date.
+  - **Containers run as root.** That is harmless on Docker Desktop, but on Linux, files they write into the repository would belong to root. Task 6.3, the first to run on Linux, settles the container user.
+  - **Speed on Windows:** packages live in named volumes, off the slow Windows mount.
+- Dependencies added: all are development tools, and none ships in the engine package. All licences work with AGPL.
+  - Python, in the `dev` group: pytest 9.1.1 (MIT), httpx 0.28.1 (BSD-3-Clause), hypothesis 6.169.0 (MPL-2.0), ruff 0.17.0 (MIT), mypy 2.4.0 (MIT), bandit 1.9.4 (Apache-2.0), pip-audit 2.10.1 (Apache-2.0). Build backend: hatchling 1.32.4 (MIT). `uv.lock` pins 48 packages in all.
+  - npm: typescript 7.0.2 (Apache-2.0), about 30 MB with its Linux compiler.
+  - Images: `postgres:18.6-trixie` (PostgreSQL licence), `ghcr.io/astral-sh/uv:0.9.30-python3.13-bookworm-slim` (uv: MIT or Apache-2.0; Python: PSF), `node:22.23.3-bookworm-slim` (MIT), `zricethezav/gitleaks:v8.30.1` (MIT).

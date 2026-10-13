@@ -3,7 +3,8 @@
 # Every target runs inside the development containers in compose.dev.yaml, so a
 # command gives the same result on any computer and in the automated builds.
 # Each recipe line is one docker compose command, which runs the same way under
-# Windows' cmd.exe and a Unix shell.
+# Windows' cmd.exe and a Unix shell. Paths inside the containers are relative to
+# /workspace, because Git Bash on Windows rewrites arguments that start with "/".
 
 COMPOSE := docker compose --file compose.dev.yaml
 ENGINE := $(COMPOSE) run --rm engine
@@ -36,10 +37,10 @@ test:
 
 security:
 	$(ENGINE) uv run --locked bandit --recursive --quiet engine/src scripts
-	$(ENGINE) sh -c "uv export --locked --no-emit-project --format requirements-txt --output-file /tmp/requirements.txt && uv run --locked pip-audit --disable-pip --requirement /tmp/requirements.txt"
+	$(ENGINE) sh -c "uv export --quiet --locked --no-emit-project --format requirements-txt --output-file /tmp/requirements.txt && uv run --locked pip-audit --disable-pip --requirement /tmp/requirements.txt"
 	$(WEB) npm audit --audit-level=high
-	$(GITLEAKS) git --no-banner --redact --verbose /workspace
-	$(GITLEAKS) git --no-banner --redact --verbose --pre-commit --staged /workspace
+	$(GITLEAKS) git --no-banner --no-color --redact --verbose .
+	$(GITLEAKS) git --no-banner --no-color --redact --verbose --pre-commit --staged .
 
 migrate:
 	$(error Not yet set up: task 1.6 of the Platform Build Plan builds make migrate)
