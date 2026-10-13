@@ -2,6 +2,64 @@
 
 The change log for `bowerstone-platform`, newest entry first. Only Ilia sets an entry to "Approved".
 
+## 2026-10-13: The migration runner (Platform Build Plan, task 1.2)
+- Status: Ready for review
+- What and why: Applies each module's numbered SQL files exactly once and in order, records them in `core.applied_migration` with a checksum, and undoes them with their down files. It replaces Alembic, which would need one migration branch per app.
+  - `migration_files.py` reads a module's `migrations` folder and refuses:
+    - badly named, unexpected, repeated, or missing files, and gaps in the numbering
+    - an upgrade file without a down file
+    - empty files, invalid UTF-8, a byte-order mark, and Windows line endings
+  - `migrate.py`:
+    - `upgrade` and `downgrade` run on one connection that holds a session-level advisory lock for the whole run.
+    - A run refuses when the database and the files disagree: a file changed or renamed after it was applied, a gap in the records, or a database ahead of the code.
+    - Each file runs in one transaction with its record. A file marked `-- bowerstone: no-transaction` runs alone, outside a transaction, and PostgreSQL refuses a second statement in it.
+  - Choices agreed with Ilia:
+    - a separate migration time limit, `BOWERSTONE_MIGRATION_STATEMENT_TIMEOUT_MS`, defaulting to 30 minutes
+    - every migration must have a down file
+    - a second run waits for the lock, up to that time limit
+  - Departure from the plan's layout: instead of one `migrate.py`, the runner is a package, `bowerstone_engine.migrations` (Ilia moved the files there), of four modules, so each stays under 300 lines with one job (CLAUDE.md rule 8):
+    - `migration_files.py` reads and checks the files
+    - `migration_execution.py` runs them and holds the lock
+    - `migration_records.py` keeps `core.applied_migration`
+    - `migrate.py` holds `upgrade` and `downgrade`
+  - The runner does not run the database check itself. Task 1.4's `upgrade_all` runs it first, as the plan says.
+- Files:
+  - Engine:
+    - New package `engine/src/bowerstone_engine/migrations/`: `__init__.py`, `migrate.py`, `migration_execution.py`, `migration_files.py`, `migration_records.py`
+    - Changed: `config.py` (`migration_statement_timeout_ms` and `MigrationSettings.migration_limits`), `errors.py` (`MigrationError`)
+  - Tests: `engine/tests/test_migration_files.py`, `engine/tests/test_migration_settings.py`, and `engine/tests/migration_runner/` (`conftest.py`, `test_upgrade.py`, `test_downgrade.py`, `test_lock_and_no_transaction.py`)
+  - This file.
+- Tests: 94 new tests, run with `make test`. Each runner test gets a PostgreSQL 18 database of its own, because migrations commit.
+  - The plan's "done when" list:
+    - a fresh upgrade
+    - a second run that changes nothing
+    - an edited file, refused even when the edit is a comment
+    - a gap in numbering
+    - a downgrade
+    - two runs at the same time, which apply each migration once
+    - a no-transaction file that creates and drops an index with `CONCURRENTLY`, leaving it valid
+    - a no-transaction file with two statements, refused with nothing run or recorded
+  - Also covered:
+    - **Badly named files:** ten forms of bad name, a subfolder, number 0000, repeated numbers, and numbers not starting at 0001
+    - **Partner files:** an upgrade file with no down file, a down file with no upgrade file, and a down file with a mismatched name
+    - **File contents:** Windows line endings, a lone carriage return, a byte-order mark, invalid UTF-8, and empty or white-space files, each checked in both the upgrade and the down file. Unicode text is accepted, with its checksum taken over the bytes.
+    - **The no-transaction marker:** only an exact first line counts
+    - **Module names:** valid and invalid
+    - **Database out of step with the files:** a renamed file, a database ahead of the code, a gap in the records, and a slice of the migrations passed in
+    - **Failures:** a failing file rolls back with its record while earlier files stay; a failing down file keeps its record; normal transactions resume after a no-transaction file
+    - **`%` signs:** a PL/pgSQL `RAISE` with `%` and `%%` gives exactly the right message
+    - **Records:** kept apart per module; the record table is created once, owned by `bowerstone_owner`, and refuses a version out of range or a malformed checksum
+    - **Connections and the lock:** a connection inside a transaction is refused; a run waiting too long for the lock gives up with a clear message; the lock is released after a failed run
+    - **Downgrade targets:** 0, the current version and above, and refused targets (-1, past the end, `True`); upgrading again after a downgrade
+    - **The migration time limit:** its default, bounds, refused values, and the limits it gives a migration run
+- Scaling and security:
+  - **One run at a time:** a session-level advisory lock on the run's single connection. A second run waits, up to the migration time limit, and is then refused with a clear message. The lock is released when the run ends or fails.
+  - **Edits and stale code are refused:** a file changed or renamed after it was applied, and a database ahead of the code. Line-ending problems fail as such, not as a changed checksum.
+  - **Failures leave nothing behind:** each file runs in one transaction with its record. A no-transaction file is the exception: PostgreSQL refuses a second statement in it, and its record is written only after it succeeds. If it succeeds but the record write then fails, the next run retries the statement and fails loudly. A failed `CREATE INDEX CONCURRENTLY` can also leave an invalid index. Both points belong in the migration-writing guidance for task 3.2.
+  - **Migration files run as written,** through the driver with no parameters. They come from Bowerstone's own packages, never from users. Records are written with bound parameters.
+  - **Time limit:** migration statements get 30 minutes by default; the API keeps its 10-second limit.
+- Dependencies added: None
+
 ## 2026-10-13: Checks on GitHub Actions (part of Platform Build Plan, task 6.3, brought forward)
 - Status: Ready for review
 - What and why: Every push and every pull request runs `make lint`, `make test`, and `make security` on GitHub Actions, in the same pinned containers used on the development computer. A change that breaks a test, a lint rule, or a security check shows as a failed run before it is merged. Ilia asked for this ahead of task 6.3, which still adds the end-to-end test and the remaining jobs.

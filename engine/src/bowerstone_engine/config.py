@@ -128,9 +128,31 @@ class MigrationSettings(ConnectionLimits):
 
     Attributes:
         owner_database_url: The owner role's database address, kept secret.
+        migration_statement_timeout_ms: The longest any one statement of a
+            migration may run, in milliseconds. A second migration run also
+            waits this long, at most, for the first to finish.
     """
 
     owner_database_url: SecretStr
+    migration_statement_timeout_ms: int = Field(default=1_800_000, ge=1, le=86_400_000)
+
+    def migration_limits(self) -> ConnectionLimits:
+        """Give the limits for a migration run, which uses one connection.
+
+        Returns:
+            These settings' connect and pool timeouts, the migration statement
+            timeout, and a pool of one connection.
+
+        Example:
+            >>> MigrationSettings().migration_limits().statement_timeout_ms
+            1800000
+        """
+        return ConnectionLimits(
+            statement_timeout_ms=self.migration_statement_timeout_ms,
+            connect_timeout_seconds=self.connect_timeout_seconds,
+            pool_size=1,
+            pool_timeout_seconds=self.pool_timeout_seconds,
+        )
 
     @field_validator("owner_database_url")
     @classmethod

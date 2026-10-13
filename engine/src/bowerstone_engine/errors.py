@@ -25,3 +25,15 @@ class DatabaseCheckError(Exception):
             raise ValueError("a DatabaseCheckError needs at least one problem")
         self.problems = tuple(problems)
         super().__init__("The database check failed: " + "; ".join(problems) + ".")
+
+
+class MigrationError(Exception):
+    """A migration could not be read, checked, or run.
+
+    The message names the module and, where there is one, the file.
+
+    Example:
+        >>> raise MigrationError("core: 0002_parties.sql has no down file")
+        Traceback (most recent call last):
+        MigrationError: core: 0002_parties.sql has no down file
+    """
