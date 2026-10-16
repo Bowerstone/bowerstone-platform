@@ -37,3 +37,27 @@ class MigrationError(Exception):
         Traceback (most recent call last):
         MigrationError: core: 0002_parties.sql has no down file
     """
+
+
+class AppManifestError(Exception):
+    """An app's manifest breaks the rules every manifest must meet.
+
+    The message names the app, or the entry point that declared it.
+
+    Example:
+        >>> raise AppManifestError("'Core' is not a valid app key")
+        Traceback (most recent call last):
+        AppManifestError: 'Core' is not a valid app key
+    """
+
+
+class InstallError(Exception):
+    """An app could not be installed, upgraded, or removed.
+
+    The message says which app and why, such as a missing dependency.
+
+    Example:
+        >>> raise InstallError("invoicing needs accounting, which no package provides")
+        Traceback (most recent call last):
+        InstallError: invoicing needs accounting, which no package provides
+    """

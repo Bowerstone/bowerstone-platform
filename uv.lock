@@ -97,6 +97,7 @@ name = "bowerstone-engine"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "packaging" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-settings" },
     { name = "sqlalchemy" },
@@ -115,6 +116,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "packaging", specifier = ">=26.3,<27" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.6,<4" },
     { name = "pydantic-settings", specifier = ">=2.15.0,<3" },
     { name = "sqlalchemy", specifier = ">=2.1.4,<2.2" },

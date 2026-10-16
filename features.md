@@ -2,6 +2,90 @@
 
 The change log for `bowerstone-platform`, newest entry first. Only Ilia sets an entry to "Approved".
 
+## 2026-10-13: The app manifest and the installer (Platform Build Plan, task 1.4)
+- Status: Ready for review
+- What and why:
+  - Each app declares an `AppManifest` under the `bowerstone.apps` entry point group:
+    - its key, which is also its schema name
+    - its name and version
+    - its migrations package
+    - the apps it needs
+    - the engine and design-system versions it works with
+    - its permissions
+    - whether its data may be deleted
+  - The installer uses the manifests:
+    - `upgrade_all` runs the database check, the core migrations, and each enabled app's new migrations, in dependency order.
+    - `install` installs an app and everything it needs, or restores a removed one with its data.
+    - `uninstall` disables an app, or deletes its data where that is allowed.
+    - All three refuse missing or looping dependencies, an engine version outside an app's range, and a removal that another app's needs forbid.
+  - Choices agreed with Ilia:
+    - `router` and `screens_package` join the manifest in tasks 1.5 and 2.2, which first use them
+    - a permission an app no longer declares is removed
+    - `packaging` reads version ranges
+  - Rules added in building it, beyond the plan:
+    - **Keys:** keys starting `pg_` are reserved, as PostgreSQL keeps them for its own schemas.
+    - **New dependencies:** `upgrade_all` never installs a new app by itself. If an enabled app's new version needs an app that is not installed, it stops and names it.
+    - **Deleting data:** an app's data cannot be deleted while any installed app needs it, even a disabled one, because that app's kept data may rely on it.
+    - **Permissions:** an app's default roles apply only when a permission is first added, so an owner's later choices survive upgrades.
+  - Layout: as well as `apps.py` and `installer.py` from the plan, dependency ordering is in `app_dependencies.py`, and the `core.installed_app` and permission records are in `installed_apps.py`, one job per file.
+- Files:
+  - Engine: `engine/src/bowerstone_engine/apps.py`, `app_dependencies.py`, `installed_apps.py`, `installer.py` (new); `errors.py` (`AppManifestError` and `InstallError`)
+  - Tests: `engine/tests/installer/` (`conftest.py` and six test files)
+  - `pyproject.toml` and `uv.lock` (packaging), and this file
+- Tests: 92 new tests, run with `make test`. The test-only apps are real Python packages with real migration files, written into a temporary folder per test. `ledger` cannot have its data deleted, like Accounting. `billing` needs `ledger`, like Invoicing. Each database test gets a database of its own.
+  - **The plan's "done when" list:**
+    - install order: core, then `ledger`, then `billing`
+    - a missing dependency
+    - a dependency loop, shown as `billing -> ledger -> billing`
+    - removing an app another enabled app needs
+    - removing and restoring an app with its data
+    - deleting data: the schema, records, migration records, and permissions all go
+    - refusing to delete data that may not be deleted
+    - an engine version outside the range
+    - bad app keys
+  - **Manifest rules:** 50 tests covering:
+    - keys: invalid, reserved, `pg_`, and at the limits
+    - permissions: another app's, repeated, or malformed
+    - `requires`: lists that require the app itself, repeat an app, or are not tuples
+    - versions, version ranges, the name, the package, and the flags
+    - how an engine range is read
+  - **Dependency order:** chains, shared dependencies, a stable order, and loops of two and three apps
+  - **`discover_apps`:** made-up installed distributions with real entry points:
+    - an app is found
+    - an entry point that cannot load is refused
+    - an entry point that is not a manifest is refused
+    - an entry point not named after its key is refused
+    - two packages declaring one app are refused
+  - **`install`:**
+    - records and permissions are written
+    - installing again changes nothing
+    - nothing runs when a dependency is missing, a loop exists, or the engine version is outside a range
+    - an unknown app is refused, and so is an invalid engine version
+    - a first migration that does not create the app's schema is refused
+    - a permission naming a role that does not exist is refused
+    - two installs at the same time install each app once
+  - **`uninstall`:**
+    - removing an app twice changes nothing
+    - a disabled app does not hold its dependency
+    - an app's data cannot be deleted while a disabled app needs it, or without its package
+    - an app that is not installed cannot be removed
+  - **`upgrade_all`:**
+    - a new database gets the core migrations
+    - the database check runs first
+    - only new migrations run, and the new version is recorded
+    - disabled apps wait
+    - an enabled app without its package stops the run
+    - an engine version outside a range stops the run
+    - a new dependency must be installed first
+    - permissions follow the manifest while keeping the owner's role choices
+- Scaling and security:
+  - **One at a time:** all three functions hold the migration lock for their whole run, so two installs or upgrades never overlap.
+  - **Fail before changing anything:** missing dependencies, loops, and engine-version problems are found before any migration runs.
+  - **Partial installs:** an app's migrations commit one at a time. If its schema check or permission sync then fails, those migrations stay applied and the app stays unrecorded. The next install fails the same way until the app is fixed; nothing is half-recorded.
+  - **Who runs it:** the installer runs as the owner role, from the command line in task 1.6. The running API never calls it.
+  - **Entry points:** loading one imports that app's package, which runs its code. Only Bowerstone writes apps, and the launcher will refuse unsigned packages (task 3.1).
+- Dependencies added: packaging 26.3 (Apache-2.0 or BSD-2-Clause), as a runtime dependency. It was already in `uv.lock` through pytest.
+
 ## 2026-10-13: The core schema (Platform Build Plan, task 1.3)
 - Status: Ready for review
 - What and why: The core module's first migration, `0001_core.sql`, creates the data every app shares, in the `core` schema:
