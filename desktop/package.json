@@ -1,0 +1,5 @@
+{
+  "name": "@bowerstone/desktop",
+  "version": "0.0.0",
+  "description": "The Bowerstone desktop wrapper: Electron, with Python and Postgres inside"
+}
