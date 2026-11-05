@@ -71,6 +71,10 @@ services:
     image: bowerstone-platform-engine-dev
     working_dir: /workspace
     environment:
+      # The development database, for `make migrate` and the bowerstone command.
+      BOWERSTONE_ENV: development
+      BOWERSTONE_OWNER_DATABASE_URL: postgresql://bowerstone_owner:${BOWERSTONE_OWNER_PASSWORD:-dev-owner-password}@db:5432/bowerstone
+      BOWERSTONE_DATABASE_URL: postgresql://bowerstone_app:${BOWERSTONE_APP_PASSWORD:-dev-app-password}@db:5432/bowerstone
       # Used only by the tests. `make test` starts both servers first.
       BOWERSTONE_TEST_ADMIN_URL: postgresql://bowerstone_admin:test-admin-password@test-db:5432/postgres
       BOWERSTONE_TEST_PG17_ADMIN_URL: postgresql://bowerstone_admin:test-admin-password@test-db-17:5432/postgres

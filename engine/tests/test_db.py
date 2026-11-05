@@ -132,10 +132,13 @@ def test_owner_engine_uses_the_owner_address(
 ) -> None:
     owner_url = database.url(OWNER_ROLE).render_as_string(hide_password=False)
     monkeypatch.setenv("BOWERSTONE_OWNER_DATABASE_URL", owner_url)
+    monkeypatch.delenv("BOWERSTONE_MIGRATION_TIMEOUT_MS", raising=False)
     engine = owner_engine(load_settings())
     try:
         with engine.connect() as conn:
             assert conn.execute(text("SELECT current_user")).scalar_one() == OWNER_ROLE
+            # Migrations get the longer migration timeout, an hour by default.
+            assert conn.execute(text("SHOW statement_timeout")).scalar_one() == "1h"
     finally:
         engine.dispose()
 

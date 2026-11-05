@@ -1,10 +1,12 @@
-"""Connections to Postgres.
+"""Connections to Postgres, and setting up a new database.
 
 Every engine has a fixed-size pool, and every connection it opens has a
 statement timeout. `set_current_user` names the user for the change history.
 """
 
+import psycopg
 import sqlalchemy
+from psycopg import sql
 from pydantic import SecretStr
 from sqlalchemy import Connection, Engine, text
 from sqlalchemy.engine import URL
@@ -60,10 +62,92 @@ def app_engine(settings: Settings) -> Engine:
 
 
 def owner_engine(settings: Settings) -> Engine:
-    """Connections for migrations, as the owner role."""
+    """Connections for migrations, as the owner role.
+
+    They get the migration timeout, which is longer than a request's, because
+    a migration may rewrite a large table.
+    """
     return _engine_from(
-        settings, settings.owner_database_url, "BOWERSTONE_OWNER_DATABASE_URL"
+        settings,
+        settings.owner_database_url,
+        "BOWERSTONE_OWNER_DATABASE_URL",
+        statement_timeout_ms=settings.migration_timeout_ms,
     )
+
+
+def setup_database(settings: Settings, admin_url: str | None = None) -> list[str]:
+    """Creates Bowerstone's two roles and its database, through an admin's connection.
+
+    Used once, on a new desktop install. The roles' passwords and the
+    database's name come from BOWERSTONE_OWNER_DATABASE_URL and
+    BOWERSTONE_DATABASE_URL. The admin's address is `admin_url`, or else
+    BOWERSTONE_ADMIN_DATABASE_URL. A role or database that already exists is
+    left as it is, so running this again is safe. Returns what it did, one
+    sentence per step.
+    """
+    admin = admin_url or _secret(settings.admin_database_url)
+    if not admin:
+        raise SettingsError(
+            "Give the admin's address with --admin-url, "
+            "or set BOWERSTONE_ADMIN_DATABASE_URL."
+        )
+    owner = _role_url(
+        settings.owner_database_url, OWNER_ROLE, "BOWERSTONE_OWNER_DATABASE_URL"
+    )
+    app = _role_url(settings.database_url, APP_ROLE, "BOWERSTONE_DATABASE_URL")
+    if owner.database != app.database:
+        raise SettingsError(
+            "BOWERSTONE_OWNER_DATABASE_URL and BOWERSTONE_DATABASE_URL "
+            "must name the same database."
+        )
+
+    steps = []
+    database = sql.Identifier(str(owner.database))
+    dsn = (
+        postgres_url(admin)
+        .set(drivername="postgresql")
+        .render_as_string(hide_password=False)
+    )
+    with psycopg.connect(dsn, autocommit=True) as pg:
+        for role, url in ((OWNER_ROLE, owner), (APP_ROLE, app)):
+            if pg.execute(
+                "SELECT 1 FROM pg_roles WHERE rolname = %s", (role,)
+            ).fetchone():
+                steps.append(
+                    f"The role {role} already exists, so it was left as it is."
+                )
+                continue
+            pg.execute(
+                sql.SQL("CREATE ROLE {} WITH LOGIN PASSWORD {}").format(
+                    sql.Identifier(role), sql.Literal(url.password)
+                )
+            )
+            steps.append(f"Created the role {role}.")
+
+        if pg.execute(
+            "SELECT 1 FROM pg_database WHERE datname = %s", (owner.database,)
+        ).fetchone():
+            steps.append(
+                f"The database {owner.database} already exists, "
+                "so it was left as it is."
+            )
+        else:
+            pg.execute(
+                sql.SQL(
+                    "CREATE DATABASE {} OWNER {} TEMPLATE template0 ENCODING 'UTF8' "
+                    "LOCALE_PROVIDER builtin BUILTIN_LOCALE 'C.UTF-8' LOCALE 'C.UTF-8'"
+                ).format(database, sql.Identifier(OWNER_ROLE))
+            )
+            steps.append(f"Created the database {owner.database}.")
+
+        # Only Bowerstone's two roles may connect, as the roles script also sets up.
+        pg.execute(sql.SQL("REVOKE ALL ON DATABASE {} FROM PUBLIC").format(database))
+        pg.execute(
+            sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
+                database, sql.Identifier(APP_ROLE)
+            )
+        )
+    return steps
 
 
 def set_current_user(conn: Connection, user_id: int | None) -> None:
@@ -79,12 +163,33 @@ def set_current_user(conn: Connection, user_id: int | None) -> None:
     )
 
 
-def _engine_from(settings: Settings, url: SecretStr | None, variable: str) -> Engine:
+def _engine_from(
+    settings: Settings,
+    url: SecretStr | None,
+    variable: str,
+    *,
+    statement_timeout_ms: int | None = None,
+) -> Engine:
     if url is None:
         raise SettingsError(f"{variable} is not set.")
     return create_engine(
         url.get_secret_value(),
         pool_size=settings.pool_size,
         pool_timeout_s=settings.pool_timeout_s,
-        statement_timeout_ms=settings.statement_timeout_ms,
+        statement_timeout_ms=statement_timeout_ms or settings.statement_timeout_ms,
     )
+
+
+def _secret(value: SecretStr | None) -> str | None:
+    return None if value is None else value.get_secret_value()
+
+
+def _role_url(value: SecretStr | None, role: str, variable: str) -> URL:
+    if value is None:
+        raise SettingsError(f"{variable} is not set.")
+    url = postgres_url(value.get_secret_value())
+    if url.username != role:
+        raise SettingsError(f"{variable} must sign in as {role}.")
+    if not url.password:
+        raise SettingsError(f"{variable} must include {role}'s password.")
+    return url

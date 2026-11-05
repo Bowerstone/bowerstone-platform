@@ -23,7 +23,7 @@ help:
 	$(info make lint     Lint and type-check the engine and the screens)
 	$(info make test     Run the engine's and the screens' tests, on throwaway test databases)
 	$(info make format   Format the engine's Python code)
-	$(info make migrate  Not yet set up)
+	$(info make migrate  Bring the development database up to date: the core and each enabled product)
 	$(info make dev      Not yet set up)
 	$(info make desktop  Not yet set up)
 	@cd .
@@ -71,6 +71,9 @@ format: engine-image
 engine-image:
 	$(COMPOSE) --progress quiet build engine
 
-migrate dev desktop:
+migrate: engine-image db
+	$(UV) bowerstone migrate
+
+dev desktop:
 	$(info Not yet set up)
 	@cd .

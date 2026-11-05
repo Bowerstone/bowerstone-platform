@@ -30,9 +30,12 @@ def test_the_defaults() -> None:
     assert settings.mode == "server"
     assert settings.database_url is None
     assert settings.owner_database_url is None
+    assert settings.admin_database_url is None
     assert settings.static_dir is None
+    assert settings.desktop_token is None
     assert settings.max_body_bytes == 1_048_576
     assert settings.statement_timeout_ms == 30_000
+    assert settings.migration_timeout_ms == 3_600_000
     assert settings.pool_size == 5
     assert settings.pool_timeout_s == 10.0
 
@@ -45,9 +48,12 @@ def test_every_setting_is_read_from_the_environment(
         "MODE": "desktop",
         "DATABASE_URL": f"postgresql://bowerstone_app:{LEAK_MARKER}@db:5432/bowerstone",
         "OWNER_DATABASE_URL": f"postgresql+psycopg://bowerstone_owner:{LEAK_MARKER}@db/bowerstone",
+        "ADMIN_DATABASE_URL": f"postgresql://admin:{LEAK_MARKER}@db/postgres",
         "STATIC_DIR": "/srv/shell",
+        "DESKTOP_TOKEN": LEAK_MARKER * 3,
         "MAX_BODY_BYTES": "2048",
         "STATEMENT_TIMEOUT_MS": "500",
+        "MIGRATION_TIMEOUT_MS": "60000",
         "POOL_SIZE": "3",
         "POOL_TIMEOUT_S": "2.5",
     }
@@ -60,9 +66,12 @@ def test_every_setting_is_read_from_the_environment(
     assert settings.mode == "desktop"
     assert settings.database_url == SecretStr(values["DATABASE_URL"])
     assert settings.owner_database_url == SecretStr(values["OWNER_DATABASE_URL"])
+    assert settings.admin_database_url == SecretStr(values["ADMIN_DATABASE_URL"])
     assert settings.static_dir == Path("/srv/shell")
+    assert settings.desktop_token == SecretStr(values["DESKTOP_TOKEN"])
     assert settings.max_body_bytes == 2048
     assert settings.statement_timeout_ms == 500
+    assert settings.migration_timeout_ms == 60_000
     assert settings.pool_size == 3
     assert settings.pool_timeout_s == 2.5
 
@@ -77,6 +86,8 @@ def test_every_setting_is_read_from_the_environment(
         ("OWNER_DATABASE_URL", "not an address"),
         ("MAX_BODY_BYTES", "0"),
         ("STATEMENT_TIMEOUT_MS", "0"),
+        ("MIGRATION_TIMEOUT_MS", "0"),
+        ("ADMIN_DATABASE_URL", "mysql://admin@db/postgres"),
         ("POOL_SIZE", "0"),
         ("POOL_SIZE", "many"),
         ("POOL_TIMEOUT_S", "0"),

@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # The owner role's address, for migrations only.
     # The running engine never holds it.
     owner_database_url: SecretStr | None = None
+    # An admin's address, for `bowerstone setup-database` only.
+    admin_database_url: SecretStr | None = None
 
     # The built screens the engine serves.
     static_dir: Path | None = None
@@ -48,13 +50,15 @@ class Settings(BaseSettings):
     max_body_bytes: int = Field(default=1_048_576, ge=1)
     # At least 1, because 0 turns Postgres's timeout off.
     statement_timeout_ms: int = Field(default=30_000, ge=1)
+    # The statement timeout for migrations, which may rewrite large tables.
+    migration_timeout_ms: int = Field(default=3_600_000, ge=1)
 
     # The connection pool has a fixed size.
     # A request waits up to pool_timeout_s for a free connection.
     pool_size: int = Field(default=5, ge=1, le=100)
     pool_timeout_s: float = Field(default=10.0, gt=0)
 
-    @field_validator("database_url", "owner_database_url")
+    @field_validator("database_url", "owner_database_url", "admin_database_url")
     @classmethod
     def _must_be_postgres(cls, value: SecretStr | None) -> SecretStr | None:
         if value is not None:

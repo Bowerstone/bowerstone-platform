@@ -9,7 +9,11 @@ dependencies = [
     "psycopg[binary]>=3.3.8",
     "pydantic-settings>=2.16.2",
     "sqlalchemy>=2.1.8",
+    "uvicorn>=0.54.0",
 ]
+
+[project.scripts]
+bowerstone = "bowerstone_engine.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.27"]

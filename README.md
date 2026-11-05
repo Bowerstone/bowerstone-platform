@@ -31,12 +31,29 @@ You don't need Python, uv, Node, or Postgres on your computer. The engine, the s
 | `make lint` | Lints and type-checks the engine (ruff, mypy) and the screens (TypeScript) |
 | `make test` | Runs the engine's tests (pytest) and the screens' tests (Vitest), starting the test databases first |
 | `make format` | Formats the engine's Python code |
+| `make migrate` | Brings the development database up to date: the core's migrations, then each enabled product's |
 
-`make migrate`, `make dev`, and `make desktop` are not set up yet.
+`make dev` and `make desktop` are not set up yet.
 
 The development database listens on `127.0.0.1:15432`, so it does not clash with another Postgres on the usual port. To use a different port, set `BOWERSTONE_DB_PORT` before running `make db`. Its passwords are for local development only, and `compose.dev.yaml` lists them.
 
 The engine's tests never touch the development database. They run on two Postgres servers of their own, one on version 18 and one on version 17 to check that older versions are refused. Both keep their data in memory, aren't reachable from outside Docker, and start with `make test`. Each test gets a fresh database, which is dropped afterwards. `make stop` stops the servers.
+
+## The bowerstone command
+
+The engine is run and managed through one command, `bowerstone`, which also runs as `python -m bowerstone_engine`. The desktop app, Docker, and the hosted version all use it. Its settings come from `BOWERSTONE_` environment variables. `compose.dev.yaml` sets them in the engine container for the development database, so you can run a command there with `docker compose -f compose.dev.yaml run --rm engine uv run bowerstone products list`.
+
+| Command | Does |
+| --- | --- |
+| `bowerstone setup-database` | Creates the database and its two roles, once, on a new install. It needs an admin's address, from `--admin-url` or `BOWERSTONE_ADMIN_DATABASE_URL` |
+| `bowerstone migrate` | Checks the database, then applies the core's and each enabled product's new migrations, as the owner role |
+| `bowerstone products list` | Lists every product present: installed, removed, or available |
+| `bowerstone products install <key>` | Installs a product and the products it needs |
+| `bowerstone products uninstall <key> [--delete-data]` | Removes a product, keeping its data unless told otherwise |
+| `bowerstone serve [--host] [--port]` | Checks the database as the app role, then serves the API and the screens. It listens on 127.0.0.1:8000 unless told otherwise |
+| `bowerstone check-imports <package>` | Checks that a product uses the engine and other products only through their public modules |
+
+Installing or removing a product takes effect when the engine next starts. Every error prints one sentence and exits with status 1.
 
 ## Licence
 
