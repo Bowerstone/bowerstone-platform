@@ -459,6 +459,23 @@ def test_an_amount_is_stored_and_sent_back_exactly(client: TestClient) -> None:
     assert response.json()["cost"] == "10.5000"
 
 
+def test_a_product_announces_its_changes_through_the_cores_public_module(
+    installed: ScratchDatabase, client: TestClient
+) -> None:
+    note = client.post("/api/v1/notes/notes", json={"body": "Announced"}).json()
+
+    assert rows(
+        installed, "SELECT type, source, record_type, record_id FROM core.event"
+    ) == [
+        {
+            "type": "notes.note_added",
+            "source": "notes",
+            "record_type": "notes.note",
+            "record_id": str(note["id"]),
+        }
+    ]
+
+
 # Pages.
 
 

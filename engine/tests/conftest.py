@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import Engine
 
 from bowerstone_engine.db import OWNER_ROLE
+from bowerstone_engine.migrate import core_migrations, upgrade
 from bowerstone_engine.testing import (
     ADMIN_URL_VARIABLE,
     MakePackage,
@@ -57,6 +58,17 @@ def owner(database: ScratchDatabase) -> Iterator[Engine]:
     engine = database.engine(OWNER_ROLE)
     yield engine
     engine.dispose()
+
+
+@pytest.fixture
+def core_db(database: ScratchDatabase) -> ScratchDatabase:
+    """A fresh database with the core migrations applied."""
+    engine = database.engine(OWNER_ROLE)
+    try:
+        upgrade(engine, [core_migrations()])
+    finally:
+        engine.dispose()
+    return database
 
 
 @pytest.fixture

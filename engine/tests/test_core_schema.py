@@ -39,17 +39,6 @@ CORE_TABLES = [
 ]
 
 
-@pytest.fixture
-def core_db(database: ScratchDatabase) -> ScratchDatabase:
-    """A fresh database with the core migrations applied."""
-    engine = database.engine(OWNER_ROLE)
-    try:
-        upgrade(engine, [core_migrations()])
-    finally:
-        engine.dispose()
-    return database
-
-
 def sqlstate_of(
     conn: Connection, sql: str, params: Mapping[str, Any] | None = None
 ) -> str:

@@ -165,6 +165,19 @@ def engine_version() -> str:
     return metadata.version(ENGINE_DISTRIBUTION)
 
 
+def product_packages() -> dict[str, str]:
+    """Each present product's top-level package, by key, from its entry point.
+
+    Nothing is imported: the package is read from where the entry point says
+    the manifest lives.
+    """
+    entry_points = metadata.entry_points(group=ENTRY_POINT_GROUP)
+    return {
+        entry_point.name: entry_point.module.split(".")[0]
+        for entry_point in entry_points
+    }
+
+
 def load_products() -> dict[str, ProductManifest]:
     """Every product whose package is present, by key, from the entry points.
 

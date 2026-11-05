@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, StringConstraints
 from sqlalchemy import text
 
 from bowerstone_engine.auth import require
+from bowerstone_engine.core.public import emit_event
 from bowerstone_engine.deps import Db, Pages
 from bowerstone_engine.errors import InputError, NotFoundError
 from bowerstone_engine.types import Page, page_of
@@ -46,6 +47,13 @@ def build_router() -> APIRouter:
             text("INSERT INTO notes.note (body) VALUES (:body) RETURNING id, body"),
             {"body": note.body},
         ).one()
+        emit_event(
+            db,
+            "notes.note_added",
+            source="notes",
+            record_type="notes.note",
+            record_id=row.id,
+        )
         return Note(id=row.id, body=row.body)
 
     @router.get("/notes/{note_id}", dependencies=[require("notes.view")])
