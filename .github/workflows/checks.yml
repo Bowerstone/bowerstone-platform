@@ -1,0 +1,29 @@
+# Lint and test on every push and pull request. The make targets run in Docker,
+# so this job uses a Linux runner. The desktop jobs, which cannot run through
+# Docker, will run directly on each system's runner instead.
+
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Lint
+        run: make lint
+
+      - name: Test
+        run: make test
