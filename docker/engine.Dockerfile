@@ -17,6 +17,7 @@ ENV UV_PROJECT_ENVIRONMENT=/venv \
     PYTHONPYCACHEPREFIX=/cache/pycache \
     RUFF_CACHE_DIR=/cache/ruff \
     MYPY_CACHE_DIR=/cache/mypy \
-    PYTEST_ADDOPTS="-o cache_dir=/cache/pytest"
+    PYTEST_ADDOPTS="-o cache_dir=/cache/pytest" \
+    HYPOTHESIS_STORAGE_DIRECTORY=/cache/hypothesis
 
 WORKDIR /workspace
