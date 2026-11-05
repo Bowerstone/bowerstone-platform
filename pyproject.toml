@@ -1,0 +1,46 @@
+[project]
+name = "bowerstone-engine"
+version = "0.0.0"
+description = "The Bowerstone engine: the API server that every Bowerstone product runs inside"
+requires-python = ">=3.13"
+dependencies = []
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["engine/src/bowerstone_engine"]
+
+[tool.ruff]
+target-version = "py313"
+src = ["engine/src", "engine/tests"]
+# Ruff also formats Python inside Markdown. Markdown and .claude are never its to change.
+extend-exclude = ["*.md", ".claude"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use plain assert.
+"engine/tests/**" = ["S101"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+files = ["engine/src", "engine/tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["engine/tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "hypothesis>=6.170.14",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+]
