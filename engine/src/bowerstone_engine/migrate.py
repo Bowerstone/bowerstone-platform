@@ -239,6 +239,9 @@ def _raise_if(problems: Sequence[str]) -> None:
 
 NO_TRANSACTION_MARKER = "-- bowerstone: no-transaction"
 
+CORE_MODULE = "core"
+CORE_MIGRATIONS_PACKAGE = "bowerstone_engine.core.migrations"
+
 _UP_FILE = re.compile(r"(?P<version>\d{4})_(?P<name>[a-z0-9_]+)\.sql")
 _DOWN_FILE = re.compile(r"(?P<version>\d{4})_(?P<name>[a-z0-9_]+)\.down\.sql")
 
@@ -296,6 +299,11 @@ class MigrationSet:
     @property
     def refs(self) -> list[MigrationRef]:
         return [migration.ref for migration in self.migrations]
+
+
+def core_migrations() -> MigrationSet:
+    """The core's own migrations, which run before any product's."""
+    return migrations_from_package(CORE_MODULE, CORE_MIGRATIONS_PACKAGE)
 
 
 def migrations_from_package(module: str, package: str) -> MigrationSet:

@@ -12,7 +12,7 @@ Use test servers only: preparing a server changes the two roles' passwords.
 import secrets
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import sqlalchemy
 from psycopg import sql
@@ -34,7 +34,8 @@ class PostgresServer:
     """A test server with the owner and app roles, and their passwords for this run."""
 
     admin_url: URL
-    passwords: Mapping[str, str]
+    # Left out of repr, so a failing test never prints them.
+    passwords: Mapping[str, str] = field(repr=False)
 
     @classmethod
     def prepare(cls, admin_url: str) -> "PostgresServer":
