@@ -29,7 +29,7 @@ You don't need Python, uv, Node, or Postgres on your computer. The engine, the s
 | `make stop` | Stops the development containers and keeps their data |
 | `make clean` | Stops the containers and deletes their volumes: the database, packages, and caches |
 | `make lint` | Lints and type-checks the engine (ruff, mypy) and the screens (TypeScript) |
-| `make test` | Runs the engine's tests (pytest) and the screens' tests (Vitest), starting the test databases first |
+| `make test` | Runs the engine's tests (pytest), the example products' own tests, and the screens' tests (Vitest), starting the test databases first |
 | `make format` | Formats the engine's Python code |
 | `make migrate` | Brings the development database up to date: the core's migrations, then each enabled product's |
 
@@ -38,6 +38,8 @@ You don't need Python, uv, Node, or Postgres on your computer. The engine, the s
 The development database listens on `127.0.0.1:15432`, so it does not clash with another Postgres on the usual port. To use a different port, set `BOWERSTONE_DB_PORT` before running `make db`. Its passwords are for local development only, and `compose.dev.yaml` lists them.
 
 The engine's tests never touch the development database. They run on two Postgres servers of their own, one on version 18 and one on version 17 to check that older versions are refused. Both keep their data in memory, aren't reachable from outside Docker, and start with `make test`. Each test gets a fresh database, which is dropped afterwards. `make stop` stops the servers.
+
+Products test themselves with the testing kit, `bowerstone_engine.testing`, which pytest loads as a plugin wherever the engine is installed. A product sets `bowerstone_product` in its pytest settings, and its tests get a database with it installed, a connection that is rolled back after each test (`db`), an API client whose requests share that connection (`api`), and a database of their own for race tests (`committed_database`). The two test-only products in `tests/example_products/` use it for their own tests.
 
 ## The bowerstone command
 

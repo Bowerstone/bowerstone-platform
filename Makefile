@@ -11,7 +11,7 @@ UV := $(RUN) engine uv run --locked
 NPM := $(RUN) web npm
 
 .DEFAULT_GOAL := help
-.PHONY: help db psql stop clean lint lint-engine lint-web test test-engine test-web test-databases format engine-image migrate dev desktop
+.PHONY: help db psql stop clean lint lint-engine lint-web test test-engine test-examples test-web test-databases format engine-image migrate dev desktop
 
 help:
 	$(info Bowerstone platform. Every target runs in Docker.)
@@ -21,7 +21,7 @@ help:
 	$(info make stop     Stop the development containers and keep their data)
 	$(info make clean    Stop the containers and delete their volumes: the database, packages, and caches)
 	$(info make lint     Lint and type-check the engine and the screens)
-	$(info make test     Run the engine's and the screens' tests, on throwaway test databases)
+	$(info make test     Run the engine's, the example products', and the screens' tests, on throwaway test databases)
 	$(info make format   Format the engine's Python code)
 	$(info make migrate  Bring the development database up to date: the core and each enabled product)
 	$(info make dev      Not yet set up)
@@ -50,10 +50,15 @@ lint-engine: engine-image
 lint-web:
 	$(NPM) run lint
 
-test: test-engine test-web
+test: test-engine test-examples test-web
 
 test-engine: engine-image test-databases
 	$(UV) pytest
+
+# Each example product runs its own tests with the testing kit, as a product repository does.
+test-examples: engine-image test-databases
+	$(UV) pytest tests/example_products/notes
+	$(UV) pytest tests/example_products/tasks
 
 test-web:
 	$(NPM) test

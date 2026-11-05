@@ -15,6 +15,10 @@ dependencies = [
 [project.scripts]
 bowerstone = "bowerstone_engine.cli:main"
 
+# The testing kit, which pytest loads in any repository that installs the engine.
+[project.entry-points.pytest11]
+bowerstone = "bowerstone_engine.testing"
+
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"

@@ -1,7 +1,9 @@
 """Fixtures for the engine's tests.
 
 The tests run on their own Postgres servers, never on the development database.
-`make test` starts them and sets their admin addresses.
+`make test` starts them and sets their admin addresses. The Postgres 18 server
+comes from the testing kit, bowerstone_engine.testing, which pytest loads as a
+plugin, the same way it does in every product repository.
 """
 
 import os
@@ -13,36 +15,28 @@ from sqlalchemy import Engine
 
 from bowerstone_engine.db import OWNER_ROLE
 from bowerstone_engine.migrate import core_migrations, upgrade
-from bowerstone_engine.testing import (
-    ADMIN_URL_VARIABLE,
-    MakePackage,
-    PostgresServer,
-    ScratchDatabase,
-)
+from bowerstone_engine.testing import MakePackage, PostgresServer, ScratchDatabase
 
 PG17_ADMIN_URL_VARIABLE = "BOWERSTONE_TEST_PG17_ADMIN_URL"
 
 
-def _prepare(variable: str) -> PostgresServer:
-    url = os.environ.get(variable)
-    if not url:
-        pytest.fail(
-            f"{variable} is not set. Run the tests with `make test`, which sets it.",
-            pytrace=False,
-        )
-    return PostgresServer.prepare(url)
-
-
 @pytest.fixture(scope="session")
-def server() -> PostgresServer:
-    """The Postgres 18 test server."""
-    return _prepare(ADMIN_URL_VARIABLE)
+def server(bowerstone_server: PostgresServer) -> PostgresServer:
+    """The Postgres 18 test server, from the testing kit."""
+    return bowerstone_server
 
 
 @pytest.fixture(scope="session")
 def server_pg17() -> PostgresServer:
     """A Postgres 17 test server, for the version check."""
-    return _prepare(PG17_ADMIN_URL_VARIABLE)
+    url = os.environ.get(PG17_ADMIN_URL_VARIABLE)
+    if not url:
+        pytest.fail(
+            f"{PG17_ADMIN_URL_VARIABLE} is not set. Run the tests with `make test`, "
+            "which sets it.",
+            pytrace=False,
+        )
+    return PostgresServer.prepare(url)
 
 
 @pytest.fixture
