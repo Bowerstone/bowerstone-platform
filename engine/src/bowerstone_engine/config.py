@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # The built screens the engine serves.
     static_dir: Path | None = None
 
+    # In desktop mode, every request must carry this in X-Bowerstone-Desktop.
+    desktop_token: SecretStr | None = None
+
     max_body_bytes: int = Field(default=1_048_576, ge=1)
     # At least 1, because 0 turns Postgres's timeout off.
     statement_timeout_ms: int = Field(default=30_000, ge=1)

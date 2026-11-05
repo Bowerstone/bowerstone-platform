@@ -4,6 +4,8 @@ version = "0.0.0"
 description = "The Bowerstone engine: the API server that every Bowerstone product runs inside"
 requires-python = ">=3.13"
 dependencies = [
+    "fastapi>=0.162.0",
+    "packaging>=26.3",
     "psycopg[binary]>=3.3.8",
     "pydantic-settings>=2.16.2",
     "sqlalchemy>=2.1.8",
@@ -18,7 +20,7 @@ packages = ["engine/src/bowerstone_engine"]
 
 [tool.ruff]
 target-version = "py313"
-src = ["engine/src", "engine/tests"]
+src = ["engine/src", "engine/tests", "tests/example_products/*/src"]
 # Ruff also formats Python inside Markdown. Markdown and .claude are never its to change.
 extend-exclude = ["*.md", ".claude"]
 
@@ -28,11 +30,12 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 # Tests use plain assert.
 "engine/tests/**" = ["S101"]
+"tests/**" = ["S101"]
 
 [tool.mypy]
 strict = true
 python_version = "3.13"
-files = ["engine/src", "engine/tests"]
+files = ["engine/src", "engine/tests", "tests/example_products"]
 
 [tool.pytest.ini_options]
 testpaths = ["engine/tests"]
@@ -40,9 +43,23 @@ addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importli
 xfail_strict = true
 filterwarnings = ["error"]
 
+# The two test-only example products, in tests/example_products. They are
+# installed for development only, so the engine's package never includes them.
+[tool.uv.workspace]
+members = [
+    "tests/example_products/notes",
+    "tests/example_products/tasks",
+]
+
+[tool.uv.sources]
+bowerstone-example-notes = { workspace = true, editable = true }
+bowerstone-example-tasks = { workspace = true, editable = true }
+
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
+    "bowerstone-example-notes",
+    "bowerstone-example-tasks",
+    "httpx2>=2.16.0",
     "hypothesis>=6.170.14",
     "mypy>=2.4.1",
     "pytest>=9.2.0",

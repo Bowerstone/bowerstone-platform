@@ -2,7 +2,7 @@
 
 import hashlib
 import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -59,14 +59,6 @@ def folder(tmp_path: Path) -> Path:
     write_migration(migrations, 1, "schema", SCHEMA, SCHEMA_DOWN)
     write_migration(migrations, 2, "tag", TAG, TAG_DOWN)
     return migrations
-
-
-@pytest.fixture
-def owner(database: ScratchDatabase) -> Iterator[Engine]:
-    """An engine as the owner role, which migrations run as."""
-    engine = database.engine(OWNER_ROLE)
-    yield engine
-    engine.dispose()
 
 
 def load(folder: Path, module: str = "example") -> MigrationSet:

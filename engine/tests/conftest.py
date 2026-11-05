@@ -5,12 +5,16 @@ The tests run on their own Postgres servers, never on the development database.
 """
 
 import os
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
+from pathlib import Path
 
 import pytest
+from sqlalchemy import Engine
 
+from bowerstone_engine.db import OWNER_ROLE
 from bowerstone_engine.testing import (
     ADMIN_URL_VARIABLE,
+    MakePackage,
     PostgresServer,
     ScratchDatabase,
 )
@@ -45,3 +49,27 @@ def database(server: PostgresServer) -> Iterator[ScratchDatabase]:
     """A fresh database on the Postgres 18 test server, dropped after the test."""
     with server.scratch_database() as scratch:
         yield scratch
+
+
+@pytest.fixture
+def owner(database: ScratchDatabase) -> Iterator[Engine]:
+    """An engine for `database` as the owner role, which migrations run as."""
+    engine = database.engine(OWNER_ROLE)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def migrations_package(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> MakePackage:
+    """Makes importable packages of migration files, for test-only manifests."""
+
+    def make(name: str, files: Mapping[str, str]) -> str:
+        package = tmp_path / name
+        package.mkdir()
+        (package / "__init__.py").write_text("")
+        for file_name, content in files.items():
+            (package / file_name).write_bytes(content.encode())
+        monkeypatch.syspath_prepend(str(tmp_path))
+        return name
+
+    return make

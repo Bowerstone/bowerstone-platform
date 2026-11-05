@@ -10,7 +10,7 @@ Use test servers only: preparing a server changes the two roles' passwords.
 """
 
 import secrets
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 
@@ -27,6 +27,9 @@ ADMIN_URL_VARIABLE = "BOWERSTONE_TEST_ADMIN_URL"
 
 BUILTIN_C_UTF8 = "LOCALE_PROVIDER builtin BUILTIN_LOCALE 'C.UTF-8' LOCALE 'C.UTF-8'"
 """The locale clause of CREATE DATABASE that Bowerstone needs."""
+
+MakePackage = Callable[[str, Mapping[str, str]], str]
+"""Makes an importable package holding the given files, and returns its name."""
 
 
 @dataclass(frozen=True)

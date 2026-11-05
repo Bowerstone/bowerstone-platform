@@ -384,19 +384,59 @@ def migrations_from_folder(
 
 
 def upgrade(engine: Engine, sets: Sequence[MigrationSet]) -> list[Migration]:
-    """Applies every migration not yet applied, module by module, in the order given.
+    """Applies every migration not yet applied, in one locked session.
 
-    `engine` must connect as the owner role. The run holds a session-level
-    advisory lock from start to end, so a second run at the same time waits,
-    then finds nothing left to do. Before it applies anything, the run refuses
-    if an applied migration's file changed or is missing. Each migration runs in
-    one transaction with its record. A no-transaction file runs on its own, and
-    its record is written once it succeeds. Returns the migrations applied.
+    `engine` must connect as the owner role. See MigrationSession.upgrade.
     """
-    _refuse_repeated_modules(sets)
-    with _locked(engine) as (conn, pg):
-        create_record_table(conn)
-        applied = _read_applied(pg)
+    with migration_session(engine) as session:
+        return session.upgrade(sets)
+
+
+def downgrade(
+    engine: Engine, migration_set: MigrationSet, *, to_version: int = 0
+) -> list[Migration]:
+    """Undoes the module's migrations above `to_version`, in one locked session.
+
+    `engine` must connect as the owner role. See MigrationSession.downgrade.
+    """
+    with migration_session(engine) as session:
+        return session.downgrade(migration_set, to_version=to_version)
+
+
+class MigrationSession:
+    """One connection that holds the migration lock. `migration_session` makes one.
+
+    The lock is a session-level advisory lock, held from start to end, so a
+    second run at the same time waits, then finds nothing left to do. The
+    installer uses one session for a whole install, so its own changes are
+    under the same lock as the migrations.
+    """
+
+    def __init__(self, conn: Connection, pg: "_Pg") -> None:
+        self._conn = conn
+        self._pg = pg
+
+    @property
+    def connection(self) -> Connection:
+        """The session's connection, in autocommit mode: each statement commits."""
+        return self._conn
+
+    @contextmanager
+    def transaction(self) -> Iterator[Connection]:
+        """A transaction on the session's connection, committed when the block ends."""
+        with self._pg.transaction():
+            yield self._conn
+
+    def upgrade(self, sets: Sequence[MigrationSet]) -> list[Migration]:
+        """Applies every migration not yet applied, module by module, in order.
+
+        Before it applies anything, it refuses if an applied migration's file
+        changed or is missing. Each migration runs in one transaction with its
+        record. A no-transaction file runs on its own, and its record is
+        written once it succeeds. Returns the migrations applied.
+        """
+        _refuse_repeated_modules(sets)
+        applied = _read_applied(self._pg)
         problems: list[str] = []
         pending: list[Migration] = []
         for migration_set in sets:
@@ -408,25 +448,21 @@ def upgrade(engine: Engine, sets: Sequence[MigrationSet]) -> list[Migration]:
         if problems:
             raise MigrationError(problems)
         for migration in pending:
-            _apply(pg, migration)
+            _apply(self._pg, migration)
         return pending
 
+    def downgrade(
+        self, migration_set: MigrationSet, *, to_version: int = 0
+    ) -> list[Migration]:
+        """Undoes the module's applied migrations above `to_version`, newest first.
 
-def downgrade(
-    engine: Engine, migration_set: MigrationSet, *, to_version: int = 0
-) -> list[Migration]:
-    """Undoes the module's applied migrations above `to_version`, newest first.
-
-    `to_version=0` undoes all of them, which removes the module's data. Each
-    down file runs in one transaction with the removal of its record, unless it
-    is a no-transaction file. Holds the same lock as `upgrade`. Returns the
-    migrations undone.
-    """
-    if to_version < 0:
-        raise ValueError("to_version must be 0 or more")
-    with _locked(engine) as (conn, pg):
-        create_record_table(conn)
-        applied = _read_applied(pg).get(migration_set.module, {})
+        `to_version=0` undoes all of them, which removes the module's data.
+        Each down file runs in one transaction with the removal of its record,
+        unless it is a no-transaction file. Returns the migrations undone.
+        """
+        if to_version < 0:
+            raise ValueError("to_version must be 0 or more")
+        applied = _read_applied(self._pg).get(migration_set.module, {})
         problems, _pending = _compare(migration_set, applied)
         if problems:
             raise MigrationError(problems)
@@ -436,8 +472,22 @@ def downgrade(
             if migration.version in applied and migration.version > to_version
         ]
         for migration in undo:
-            _revert(pg, migration)
+            _revert(self._pg, migration)
         return undo
+
+
+@contextmanager
+def migration_session(engine: Engine) -> Iterator[MigrationSession]:
+    """Takes the migration lock, runs the owner form of the database check, and
+    creates the record table if it is missing.
+
+    `engine` must connect as the owner role. If the database is not one that
+    migrations may run on, raises DatabaseCheckError before anything changes.
+    """
+    with _locked(engine) as (conn, pg):
+        check_before_migrating(conn)
+        create_record_table(conn)
+        yield MigrationSession(conn, pg)
 
 
 def count_statements(sql: str) -> int:
