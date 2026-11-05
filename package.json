@@ -1,0 +1,20 @@
+{
+  "name": "bowerstone-platform",
+  "private": true,
+  "workspaces": [
+    "web/ui",
+    "web/shell",
+    "desktop"
+  ],
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
