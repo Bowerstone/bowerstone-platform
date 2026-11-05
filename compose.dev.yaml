@@ -1,7 +1,7 @@
 # Development containers. The Makefile runs every command through them.
 #
-# The passwords below are for the local development database only. Each can be
-# overridden with an environment variable of the same name.
+# The passwords below are for local development and tests only. The development
+# database's can be overridden with an environment variable of the same name.
 
 name: bowerstone-platform
 
@@ -33,12 +33,47 @@ services:
       start_period: 60s
       start_interval: 1s
 
+  # The tests' own Postgres servers. They keep their data in memory, so it is
+  # gone when they stop, and they never touch the development database. The
+  # tests create the two roles and a fresh database for each test.
+  test-db:
+    image: postgres:18.6-trixie@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81
+    environment: &test-db-environment
+      POSTGRES_USER: bowerstone_admin
+      POSTGRES_PASSWORD: test-admin-password
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale-provider=builtin --locale=C.UTF-8
+    # Durability is pointless for throwaway data, and turning it off makes the tests faster.
+    command: &test-db-command [postgres, -c, fsync=off, -c, synchronous_commit=off, -c, full_page_writes=off]
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck: &test-db-healthcheck
+      test: [CMD, pg_isready, --host=127.0.0.1, --username=bowerstone_admin, --dbname=postgres]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+      start_interval: 1s
+
+  # Postgres 17, so the tests can show that the engine refuses a server of the wrong version.
+  test-db-17:
+    image: postgres:17.11-trixie@sha256:3b0cda93be7c8dba2ed484d19393d93845dc3dafb88973e248ba8e6d99d784e1
+    environment: *test-db-environment
+    command: *test-db-command
+    tmpfs:
+      # Before Postgres 18 the image keeps its data here.
+      - /var/lib/postgresql/data
+    healthcheck: *test-db-healthcheck
+
   engine:
     build:
       context: docker
       dockerfile: engine.Dockerfile
     image: bowerstone-platform-engine-dev
     working_dir: /workspace
+    environment:
+      # Used only by the tests. `make test` starts both servers first.
+      BOWERSTONE_TEST_ADMIN_URL: postgresql://bowerstone_admin:test-admin-password@test-db:5432/postgres
+      BOWERSTONE_TEST_PG17_ADMIN_URL: postgresql://bowerstone_admin:test-admin-password@test-db-17:5432/postgres
     volumes:
       - .:/workspace
       - engine-venv:/venv

@@ -11,7 +11,7 @@ UV := $(RUN) engine uv run --locked
 NPM := $(RUN) web npm
 
 .DEFAULT_GOAL := help
-.PHONY: help db psql stop clean lint lint-engine lint-web test test-engine test-web format engine-image migrate dev desktop
+.PHONY: help db psql stop clean lint lint-engine lint-web test test-engine test-web test-databases format engine-image migrate dev desktop
 
 help:
 	$(info Bowerstone platform. Every target runs in Docker.)
@@ -21,7 +21,7 @@ help:
 	$(info make stop     Stop the development containers and keep their data)
 	$(info make clean    Stop the containers and delete their volumes: the database, packages, and caches)
 	$(info make lint     Lint and type-check the engine and the screens)
-	$(info make test     Run the engine's and the screens' tests)
+	$(info make test     Run the engine's and the screens' tests, on throwaway test databases)
 	$(info make format   Format the engine's Python code)
 	$(info make migrate  Not yet set up)
 	$(info make dev      Not yet set up)
@@ -52,11 +52,15 @@ lint-web:
 
 test: test-engine test-web
 
-test-engine: engine-image
+test-engine: engine-image test-databases
 	$(UV) pytest
 
 test-web:
 	$(NPM) test
+
+# The tests' own Postgres 18 and 17 servers, held in memory. `make stop` stops them.
+test-databases:
+	$(COMPOSE) --progress quiet up --detach --wait test-db test-db-17
 
 # Write mode, so it is limited to the engine's folder.
 format: engine-image
